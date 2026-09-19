@@ -52,18 +52,28 @@ src/
     types.ts       Rng / Hand / Verdict など共有の型
     index.ts       core の公開面（他層はここから import）
   render/      Canvas 描画。core の状態を読むだけで書き換えない
+    arena.ts       練習場（球・クラブ・手・相方・拍の輪・状態文字）
   audio/       拍のクリック、判定音、音量
+    clock.ts       拍の基準時刻（AudioContext.currentTime。無ければ performance.now）
+    index.ts       Web Audio で合成するクリックと判定音
   ui/          タブ・ツリー・記録帳・設定画面の DOM
+    pane.ts        右側のタブ（練習場・身体・記録帳・クラブ・路上・パッシング・舞台）
+    settings.ts    設定画面（表示・音・入力・言語・セーブ削除）
+    hud.ts / toast.ts / dialog.ts / dom.ts
   input/       キーボード／マウス／ゲームパッド（Gamepad API）を 1 つの「投げる」に束ねる。入力オフセット補正
-  i18n/        ja / en の文言
-  platform/    Electron 依存（セーブファイル、ウィンドウ、Steam ブリッジの renderer 側）
+    index.ts       キー（設定で変更可）とポインタ
+    gamepad.ts     Gamepad API の poll。A = 投げる、LB / RB = タブ、B = 戻る
+    calibrate.ts   拍に合わせて 8 回叩き、平均遅延を出す純粋ロジック（テストあり）
+  i18n/        ja / en の文言。起動時に設定から選ぶ。切替は再読み込み
+  platform/    Electron 依存（セーブファイル、設定、ウィンドウ、Steam ブリッジの renderer 側）
   main.ts
 electron/
   main.ts      main プロセス。Steam init、ウィンドウ、オーバーレイ有効化、セーブ IO
   preload.ts   contextBridge で renderer に公開する API
   api.ts       preload が公開する API の型（src/platform と共有）
   save.ts      セーブファイルの IO（一時ファイル→rename、.bak を 1 世代）
-  log.ts       userData/logs への追記ログ
+  settings.ts  設定ファイル（userData/settings.json）の IO
+  log.ts       userData/logs への追記ログ。7 日で削除
   steam.ts     steamworks.js の薄いラッパ。Steam 不在（Steam 外起動・開発時）でも落ちない
   tuning.ts    開発モードで userData/tuning.override.json を読み、変更を renderer に流す
 scripts/steam/ SteamCMD 用の app_build / depot_build vdf と upload スクリプト

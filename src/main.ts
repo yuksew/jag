@@ -11,6 +11,7 @@ import {
   selectPassing,
   selectStage,
   selectStreet,
+  shiftRun,
   checkAchievements,
   createRun,
   endRun,
@@ -24,9 +25,15 @@ import {
   type Spins,
   TUNING,
 } from './core';
+import type { Lang, Settings } from '../electron/api';
+import { createAudio } from './audio';
+import { createClock } from './audio/clock';
 import { t } from './i18n';
 import { bindThrowInput } from './input';
+import { Calibration } from './input/calibrate';
+import { GamepadInput } from './input/gamepad';
 import { createSaveStore } from './platform/save';
+import { applyDisplay, loadSettingsSync, saveSettings } from './platform/settings';
 import { installErrorLogging, log } from './platform/log';
 import { platformApi } from './platform/api';
 import { Arena, type Flash } from './render/arena';
@@ -34,13 +41,18 @@ import { askDialog } from './ui/dialog';
 import { byId } from './ui/dom';
 import { Hud } from './ui/hud';
 import { Pane } from './ui/pane';
+import { SettingsPanel } from './ui/settings';
 import { Toast } from './ui/toast';
 
-// 時刻と乱数は renderer が決めて core に渡す。拍の基準は M3 で AudioContext に移す
-const clock = (): number => performance.now();
-const rng = (): number => Math.random();
-
 installErrorLogging();
+
+// 時刻と乱数は renderer が決めて core に渡す。拍の基準は AudioContext.currentTime（無ければ performance.now）
+const clockSource = createClock();
+const rng = (): number => Math.random();
+let settings: Settings = loadSettingsSync();
+const audio = createAudio(clockSource.context, settings.sound);
+/** 入力の時刻。オフセット補正（入力の遅れ）を引く */
+const inputNow = (): number => clockSource.now() - settings.input.offsetMs;
 
 let state: SaveState = fresh();
 const run = createRun();
@@ -54,7 +66,13 @@ let flash: Flash | null = null;
 
 byId('title').innerHTML = `${t.title}<small>${t.subtitle}</small>`;
 const foot = byId('foot');
-foot.innerHTML = `<span>${t.footer}</span><button id="reset-btn">${t.buttons.reset}</button>`;
+foot.innerHTML = `<span>${t.footer}</span><span><button class="iconbtn" id="settings-btn">${t.settings.open}</button> <button id="reset-btn">${t.buttons.reset}</button></span>`;
+const pausedBox = document.createElement('div');
+pausedBox.id = 'paused';
+pausedBox.className = 'paused';
+pausedBox.hidden = true;
+pausedBox.textContent = t.settings.paused;
+canvas.parentElement?.append(pausedBox);
 
 // ---- セーブ ----
 let saveTimer: number | undefined;
@@ -153,7 +171,7 @@ function render(): void {
 }
 
 function setFlash(text: string, tone: Flash['tone']): void {
-  flash = { text, tone, at: clock() };
+  flash = { text, tone, at: clockSource.now() };
 }
 
 function unlockAchievements(): void {
@@ -168,11 +186,14 @@ function onEvents(events: RunEvent[]): void {
       case 'throw':
         walletDirty = true;
         setFlash(t.flash[e.grade], e.grade === 'wobble' ? 'warn' : 'ink');
+        audio.sfx(e.grade);
         break;
       case 'early':
         setFlash(t.flash.early, 'bad');
+        audio.sfx('early');
         break;
       case 'clean':
+        audio.sfx('clean-bonus');
         toast.show(
           t.toast.clean(
             isClubId(e.patternId)
@@ -201,9 +222,11 @@ function onEvents(events: RunEvent[]): void {
         break;
       case 'showcase-cleared':
         toast.show(t.toast.showcase);
+        audio.sfx('showcase');
         break;
       case 'drop':
         setFlash(t.flash.drop, 'bad');
+        audio.sfx('drop');
         break;
       case 'record-open':
         toast.show(t.toast.recordOpen);
@@ -232,11 +255,18 @@ function onEvents(events: RunEvent[]): void {
 }
 
 function onThrow(): void {
-  if (!run.on) {
-    if (startRun(run, state, clock(), rng)) hud.run(run);
+  if (settingsPanel.isOpen || calibration) {
+    if (calibration) calibrationTap(inputNow());
     return;
   }
-  onEvents(handleInput(run, state, clock(), rng));
+  if (!run.on) {
+    if (startRun(run, state, clockSource.now(), rng)) {
+      hud.run(run);
+      scheduledClick = -1;
+    }
+    return;
+  }
+  onEvents(handleInput(run, state, inputNow(), rng));
 }
 
 hud.startBtn.onclick = () => {
@@ -246,22 +276,141 @@ hud.startBtn.onclick = () => {
 
 byId<HTMLButtonElement>('reset-btn').onclick = () => {
   if (!window.confirm(t.confirmReset)) return;
+  void resetAll();
+};
+
+async function resetAll(): Promise<void> {
   if (run.on) endRun(run, state);
   state = fresh();
   Object.assign(run, createRun());
-  store.clear().catch((e: unknown) => log.error(`clear failed: ${String(e)}`));
+  await store.clear().catch((e: unknown) => log.error(`clear failed: ${String(e)}`));
   render();
-};
+}
 
-bindThrowInput(canvas, onThrow);
+// ---- 設定 ----
+let calibration: Calibration | null = null;
+let calibrationResolve: ((offset: number | null) => void) | null = null;
+let calibrationProgress: ((taps: number, need: number) => void) | null = null;
+let calibrationClickK = -1;
+
+function calibrationTap(now: number): void {
+  if (!calibration) return;
+  if (calibration.tap(now)) {
+    const st = calibration.state;
+    calibrationProgress?.(st.taps, st.need);
+    if (st.done) finishCalibration(st.offsetMs);
+  }
+}
+
+function finishCalibration(offset: number | null): void {
+  const resolve = calibrationResolve;
+  calibration = null;
+  calibrationResolve = null;
+  calibrationProgress = null;
+  resolve?.(offset);
+}
+
+const settingsPanel = new SettingsPanel({
+  onChange(next) {
+    settings = next;
+    audio.setSettings(settings.sound);
+    throwInput.setKeys(settings.input.throwKeys);
+    void applyDisplay(settings);
+    saveSettings(settings).catch((e: unknown) => log.error(`settings save failed: ${String(e)}`));
+  },
+  calibrate(onProgress) {
+    return new Promise<number | null>((resolve) => {
+      finishCalibration(null);
+      calibration = new Calibration(clockSource.now(), TUNING.beat.baseIntervalMs, 8, 2);
+      calibrationClickK = -1;
+      calibrationResolve = resolve;
+      calibrationProgress = onProgress;
+    });
+  },
+  cancelCalibration() {
+    finishCalibration(null);
+  },
+  async deleteSave() {
+    await resetAll();
+    toast.show(t.settings.save.deleted);
+  },
+  changeLang(next: Lang) {
+    if (run.on) return;
+    settings = { ...settings, lang: next };
+    saveSettings(settings)
+      .then(() => window.location.reload())
+      .catch((e: unknown) => log.error(`settings save failed: ${String(e)}`));
+  },
+  running: () => run.on,
+});
+
+byId<HTMLButtonElement>('settings-btn').onclick = () => {
+  if (settingsPanel.isOpen) settingsPanel.close();
+  else settingsPanel.open(settings);
+};
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Escape' && settingsPanel.isOpen) settingsPanel.close();
+});
+
+// ---- 入力 ----
+const throwInput = bindThrowInput(canvas, onThrow, settings.input.throwKeys);
+const gamepad = new GamepadInput({
+  onThrow,
+  onBack: () => {
+    if (settingsPanel.isOpen) settingsPanel.close();
+  },
+  onTabPrev: () => pane.step(-1),
+  onTabNext: () => pane.step(1),
+});
 window.addEventListener('resize', () => arena.fit());
+
+// ---- 一時停止（最小化・非表示） ----
+let pausedAt: number | null = null;
+const pausedEl = byId('paused');
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (run.on && pausedAt === null) {
+      pausedAt = clockSource.now();
+      pausedEl.hidden = false;
+    }
+  } else if (pausedAt !== null) {
+    shiftRun(run, clockSource.now() - pausedAt);
+    pausedAt = null;
+    pausedEl.hidden = true;
+    scheduledClick = -1;
+  }
+});
+
+// ---- 終了時の保存 ----
 window.addEventListener('beforeunload', () => {
   if (saveTimer !== undefined) flushSave();
 });
+platformApi()?.window.onFlushRequest(async () => {
+  if (saveTimer !== undefined) window.clearTimeout(saveTimer);
+  saveTimer = undefined;
+  await store.write(state).catch((e: unknown) => log.error(`final save failed: ${String(e)}`));
+});
 
 // ---- 起動 ----
-function frame(now: number): void {
-  onEvents(tick(run, state, now, rng));
+let scheduledClick = -1;
+function frame(): void {
+  const now = clockSource.now();
+  gamepad.poll();
+  if (pausedAt === null) {
+    onEvents(tick(run, state, now, rng));
+    // 次の拍のクリックを予約（拍ごとに 1 回）
+    if (run.on && run.next && run.next.k !== scheduledClick) {
+      scheduledClick = run.next.k;
+      audio.scheduleClick(run.next.at, run.next.k % 4 === 0);
+    }
+  }
+  if (calibration) {
+    const k = calibration.nearestBeat(now + calibration.intervalMs / 2);
+    if (k !== calibrationClickK) {
+      calibrationClickK = k;
+      audio.scheduleClick(calibration.beatAt(k), k % 4 === 0);
+    }
+  }
   arena.draw(now, run, state, flash);
   if (run.on) hud.run(run);
   requestAnimationFrame(frame);
@@ -299,6 +448,8 @@ async function boot(): Promise<void> {
   log.info(`boot v${platformApi()?.version ?? 'browser'} balls=${state.balls}`);
   render();
   arena.fit();
+  await applyDisplay(settings);
+  log.info(`clock=${clockSource.audio ? 'audio' : 'performance'} offset=${settings.input.offsetMs}ms lang=${settings.lang}`);
   requestAnimationFrame(frame);
 }
 

@@ -1,5 +1,13 @@
+import type { Lang } from '../../electron/api';
+import { loadSettingsSync } from '../platform/settings';
+import { en } from './en';
 import { ja, type Strings } from './ja';
 
-// 言語切替は M3 で設定画面と一緒に入れる。今は日本語固定。
-export const t: Strings = ja;
+export const LANGS: readonly Lang[] = ['ja', 'en'];
+
+const TABLE: Record<Lang, Strings> = { ja, en };
+
+/** 起動時に設定から決める。切り替えは設定を書いて再読み込み */
+export const lang: Lang = loadSettingsSync().lang;
+export const t: Strings = TABLE[lang];
 export type { Strings };

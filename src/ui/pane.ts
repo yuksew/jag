@@ -90,6 +90,17 @@ export class Pane {
     }
   }
 
+  /** 開いているタブを前後に切り替える（ゲームパッドの LB / RB） */
+  step(delta: number): void {
+    const ids = [...this.tabsEl.querySelectorAll<HTMLButtonElement>('[data-tab]')].map((b) => b.dataset['tab'] as Tab);
+    if (ids.length === 0) return;
+    const i = Math.max(0, ids.indexOf(this.tab));
+    const next = ids[(i + delta + ids.length) % ids.length];
+    if (!next || next === this.tab) return;
+    this.tab = next;
+    this.onTabChange(this.tab);
+  }
+
   render(state: SaveState, run: RunState): void {
     this.renderTabs(state);
     const open = visibleTabs(state).find((x) => x.id === this.tab)?.open ?? false;

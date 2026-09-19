@@ -85,7 +85,8 @@ canvas{display:block;width:100%;height:auto;touch-action:manipulation}
 .milestone .todo{color:var(--muted)}
 .note{font-size:13px;color:var(--muted);margin-top:16px}
 .foot{margin-top:14px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:13px;flex-wrap:wrap;gap:10px}
-.foot button{background:none;border:0;color:var(--muted);text-decoration:underline;padding:0}
+.foot button:not(.iconbtn){background:none;border:0;color:var(--muted);text-decoration:underline;padding:0}
+.foot > span:last-child{display:flex;gap:12px;align-items:center}
 .toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:6px 14px;border-radius:999px;font-weight:700;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
@@ -93,3 +94,17 @@ canvas{display:block;width:100%;height:auto;touch-action:manipulation}
 .dialog-back{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:10}
 .dialog{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;max-width:420px;display:flex;flex-direction:column;gap:14px}
 .dialog .actions{display:flex;gap:10px;justify-content:flex-end}
+
+.dialog.settings{width:min(560px,92vw);max-height:88vh;overflow:auto;gap:8px}
+.settings-head{display:flex;justify-content:space-between;align-items:center}
+.settings-head h2{margin:0;font-size:18px}
+.dialog.settings h3{font-size:13px;color:var(--muted);margin:12px 0 4px}
+.dialog.settings .row{display:flex;flex-direction:column;gap:8px;font-size:14px}
+.dialog.settings label{display:flex;align-items:center;gap:8px}
+.dialog.settings input[type=range]{flex:1;max-width:220px}
+.dialog.settings select{font:inherit;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--ink)}
+.dialog.settings .note{margin:0}
+.iconbtn{background:none;border:1px solid var(--line);border-radius:999px;padding:6px 12px;color:var(--muted);font-size:13px}
+.paused[hidden]{display:none}
+.paused{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);color:#fff;font-weight:700;font-size:16px}
+html.reduce-motion *{transition:none !important;animation:none !important}
