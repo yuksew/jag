@@ -20,6 +20,7 @@
 - `pnpm install`
 - `pnpm dev` — 開発起動（Vite + Electron）
 - `pnpm test` — 単体テスト
+- `pnpm smoke` — 起動スモーク（`pnpm compile` の後。ヘッドレスは `xvfb-run -a`）
 - `pnpm typecheck` — `tsc --noEmit`
 - `pnpm lint`
 - `pnpm build` — 全プラットフォームのパッケージ（CI 用）
@@ -54,12 +55,16 @@ electron/
   main.ts      main プロセス。Steam init、ウィンドウ、オーバーレイ有効化、セーブ IO
   preload.ts   contextBridge で renderer に公開する API
   api.ts       preload が公開する API の型（src/platform と共有）
+  save.ts      セーブファイルの IO（一時ファイル→rename、.bak を 1 世代）
+  log.ts       userData/logs への追記ログ
   steam.ts     steamworks.js の薄いラッパ。Steam 不在（Steam 外起動・開発時）でも落ちない
 scripts/steam/ SteamCMD 用の app_build / depot_build vdf と upload スクリプト
+tests/smoke.mjs Playwright による起動スモーク（`pnpm smoke`）
 docs/DESIGN.md 設計書
 docs/STEAM.md  Steam リリース要件とチェックリスト
 docs/PROMPTS.md Claude Code への指示（マイルストーンごと）
 docs/PROTOTYPE_DIFF.md 試作と DESIGN.md の差分表
+docs/PORT_CHECK.md 試作と移植版の挙動比較手順
 reference/prototype.html  単一ファイルの試作。ここから移植する
 ```
 

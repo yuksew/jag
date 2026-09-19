@@ -53,7 +53,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['electron/**/*.ts', 'scripts/**/*.mjs'],
+    files: ['electron/**/*.ts', 'scripts/**/*.mjs', 'tests/**/*.mjs'],
     languageOptions: {
       globals: { process: 'readonly', console: 'readonly', __dirname: 'readonly' },
     },
