@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>三球 — ジャグリング・インクリメンタル試作</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9E3D6; --panel:#F6F2EA; --panel2:#EDE6D8; --ink:#22343A; --muted:#66797E; --line:#D3C9B5;
+  --amber:#B8791E; --coral:#D85A40; --sky:#3C8FA5; --ivory:#FBF6EA; --ok:#3E8C5C; --bad:#C2452C;
+  --ring:rgba(34,52,58,.18);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#22343A; --panel:#2B4148; --panel2:#33505A; --ink:#F2E9D8; --muted:#95AAAE; --line:#3E5C64;
+    --amber:#E8B04A; --coral:#E9694F; --sky:#6FB7C9; --ivory:#F2E9D8; --ok:#8FD0A0; --bad:#F08A72;
+    --ring:rgba(242,233,216,.16);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#22343A; --panel:#2B4148; --panel2:#33505A; --ink:#F2E9D8; --muted:#95AAAE; --line:#3E5C64;
+  --amber:#E8B04A; --coral:#E9694F; --sky:#6FB7C9; --ivory:#F2E9D8; --ok:#8FD0A0; --bad:#F08A72;
+  --ring:rgba(242,233,216,.16);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  font-size:15px; line-height:1.6; font-feature-settings:"tnum";
+}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+.wrap{max-width:1180px;margin:0 auto;padding:16px 16px 40px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+h1{font-size:22px;font-weight:900;margin:0;letter-spacing:.02em}
+h1 small{font-weight:500;color:var(--muted);font-size:13px;margin-left:10px}
+.wallet{display:flex;gap:18px;flex-wrap:wrap}
+.wallet div{display:flex;align-items:baseline;gap:6px}
+.wallet b{font-size:22px;font-weight:700;min-width:2ch}
+.wallet span{color:var(--muted);font-size:13px}
+
+.grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);gap:14px}
+@media (max-width:820px){.grid{grid-template-columns:1fr}}
+
+.arena{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;position:relative}
+canvas{display:block;width:100%;height:auto;touch-action:manipulation}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--line);flex-wrap:wrap}
+.hud .stat{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:13px}
+.hud .stat b{color:var(--ink);font-weight:700}
+.fat{width:120px;height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;display:inline-block;vertical-align:middle}
+.fat i{display:block;height:100%;background:var(--coral);width:0%}
+.btn{background:var(--ink);color:var(--bg);border:0;border-radius:999px;padding:9px 18px;font-weight:700}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn[disabled]{opacity:.4;cursor:default}
+
+.side{background:var(--panel);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-height:420px}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;background:none;border:0;padding:12px 6px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--amber)}
+.tabs button.locked{color:var(--line)}
+.pane{padding:14px;overflow:auto;max-height:640px}
+.pane h2{font-size:14px;font-weight:700;margin:14px 0 6px;color:var(--muted)}
+.pane h2:first-child{margin-top:0}
+
+.pat{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.pat button{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;text-align:left;min-width:120px}
+.pat button.on{border-color:var(--amber);box-shadow:inset 0 0 0 1px var(--amber)}
+.pat button[disabled]{opacity:.45;cursor:default}
+.pat b{display:block;font-size:17px}
+.pat span{font-size:12px;color:var(--muted)}
+
+.node{display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.node:first-of-type{border-top:0}
+.node .n{font-weight:700}
+.node .n em{font-style:normal;color:var(--amber);margin-left:6px;font-weight:500}
+.node .d{font-size:13px;color:var(--muted);grid-column:1}
+.node .req{font-size:12px;color:var(--bad)}
+.node button{grid-row:1/3;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-weight:700;white-space:nowrap}
+.node button[disabled]{opacity:.4;cursor:default}
+.node button.max{border-color:transparent;background:transparent;color:var(--muted)}
+
+.pres{margin-top:18px;padding:14px;border:1px dashed var(--line);border-radius:12px}
+.pres p{margin:6px 0;font-size:13px;color:var(--muted)}
+.pres p.ok{color:var(--ok)}
+.milestone{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+.milestone:first-of-type{border-top:0}
+.milestone .done{color:var(--ok)}
+.milestone .todo{color:var(--muted)}
+.note{font-size:13px;color:var(--muted);margin-top:16px}
+.foot{margin-top:14px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:13px;flex-wrap:wrap;gap:10px}
+.foot button{background:none;border:0;color:var(--muted);text-decoration:underline;padding:0}
+.toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:6px 14px;border-radius:999px;font-weight:700;font-size:13px;opacity:0;transition:opacity .2s}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>三球<small>ジャグリング・インクリメンタル試作</small></h1>
+    <div class="wallet">
+      <div><b id="wCatch">0</b><span>キャッチ</span></div>
+      <div><b id="wClean">0</b><span>クリーン</span></div>
+      <div><b id="wCore">0</b><span>コア</span></div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="arena">
+      <canvas id="cv" width="760" height="470" aria-label="練習場"></canvas>
+      <div class="toast" id="toast"></div>
+      <div class="hud">
+        <div class="stat">
+          <div>拍 <b id="hBeat">0</b></div>
+          <div>ノーミス <b id="hStreak">0</b></div>
+          <div>今回 <b id="hRun">0</b></div>
+          <div>疲労 <span class="fat"><i id="hFat"></i></span></div>
+        </div>
+        <button class="btn" id="startBtn">投げ始める</button>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="tabs">
+        <button class="on" data-tab="practice">練習場</button>
+        <button data-tab="body">身体</button>
+        <button data-tab="record" id="recTab" class="locked">記録帳</button>
+      </div>
+      <div class="pane" id="pane"></div>
+    </aside>
+  </div>
+
+  <div class="foot">
+    <span>スペースキー、または練習場をクリック／タップで投げる。拍のたびに輪が縮む。輪が重なった瞬間に投げる。</span>
+    <button id="resetBtn">記録を消す</button>
+  </div>
+</div>
+
+<script>
+(() => {
+// ---------- data ----------
+const PATTERNS = {
+  '3':   {ss:[3],     name:'カスケード',   balls:3, mult:1,   tol:1,    desc:'基本。左右交互に山を描く'},
+  '441': {ss:[4,4,1], name:'441',         balls:3, mult:1.5, tol:.9,   desc:'高い2投と、手渡しの1'},
+  '531': {ss:[5,3,1], name:'531',         balls:3, mult:2,   tol:.8,   desc:'高・中・低の三段'},
+  '4':   {ss:[4],     name:'ファウンテン', balls:4, mult:2.5, tol:.75,  desc:'4球。各手が別々に投げ上げる'},
+  '53':  {ss:[5,3],   name:'53',          balls:4, mult:3.5, tol:.65,  desc:'4球。高低の交差'},
+};
+const NODES = [
+  {id:'prec',  br:'手',   name:'精度',   desc:'許容幅 +12ms',                         max:5, cost:l=>({c:'catch',n:Math.round(20*1.6**l)})},
+  {id:'speed', br:'手',   name:'速さ',   desc:'拍を 35ms 短く。速いほどキャッチが増える', max:5, cost:l=>({c:'catch',n:Math.round(40*1.7**l)})},
+  {id:'asym',  br:'手',   name:'非対称', desc:'サイトスワップ 441 を解放',               max:1, req:{prec:3},          cost:()=>({c:'clean',n:3})},
+  {id:'high',  br:'手',   name:'高投げ', desc:'サイトスワップ 531 を解放',               max:1, req:{speed:2,asym:1},  cost:()=>({c:'clean',n:5})},
+  {id:'read',  br:'目',   name:'先読み', desc:'ゆれた投げを立て直す確率 +15%',           max:4, cost:l=>({c:'catch',n:Math.round(60*1.8**l)})},
+  {id:'chase', br:'目',   name:'追い目', desc:'落球をゆれに留める確率 +12%',             max:3, req:{read:2},          cost:l=>({c:'clean',n:2+l})},
+  {id:'stam',  br:'体幹', name:'持久',   desc:'疲労の溜まり方 -12%',                     max:5, cost:l=>({c:'catch',n:Math.round(30*1.7**l)})},
+  {id:'breath',br:'体幹', name:'呼吸',   desc:'ぴったりの投げで疲労がわずかに抜ける',     max:3, req:{stam:2},          cost:l=>({c:'clean',n:1+l})},
+  {id:'auto',  br:'記憶', name:'筋記憶', desc:'入力なしで勝手に投げる拍の割合 +10%',     max:8, cost:l=>({c:'catch',n:Math.round(80*1.6**l)})},
+  {id:'flow',  br:'記憶', name:'流れ',   desc:'勝手に投げた直後の拍は許容幅 +40ms',      max:1, req:{auto:4},          cost:()=>({c:'core',n:1})},
+];
+const BRANCHES = ['手','目','体幹','記憶'];
+const MILESTONES = [
+  {id:'c100',  label:'通算 100 キャッチ',  test:s=>s.totalCatches>=100,  give:{catch:30},  gtxt:'+30 キャッチ'},
+  {id:'c500',  label:'通算 500 キャッチ',  test:s=>s.totalCatches>=500,  give:{clean:2},   gtxt:'+2 クリーン'},
+  {id:'c2000', label:'通算 2000 キャッチ', test:s=>s.totalCatches>=2000, give:{core:1},    gtxt:'+1 コア'},
+  {id:'r20',   label:'1回で 20 拍',        test:s=>s.bestRun>=20,        give:{catch:20},  gtxt:'+20 キャッチ'},
+  {id:'r40',   label:'1回で 40 拍',        test:s=>s.bestRun>=40,        give:{clean:1},   gtxt:'+1 クリーン'},
+  {id:'r80',   label:'1回で 80 拍',        test:s=>s.bestRun>=80,        give:{core:1},    gtxt:'+1 コア'},
+];
+const BASE = {interval:620, tol:140, fatigue:0.02, cleanEvery:30, bossAt:40, bossLen:5};
+const COLORS = ['ivory','coral','sky','amber'];
+
+// ---------- state ----------
+const fresh = () => ({
+  catch:0, clean:0, core:0,
+  totalCatches:0, bestRun:0, runs:0,
+  tree:{}, balls:3, pattern:'3',
+  patClean:{}, milestones:[], recordOpen:false, done:false,
+});
+let S = fresh();
+try{ const raw = localStorage.getItem('sankyu-proto'); if(raw){ S = Object.assign(fresh(), JSON.parse(raw)); } }catch(e){}
+let saveT = 0;
+const save = () => { clearTimeout(saveT); saveT = setTimeout(()=>{ try{ localStorage.setItem('sankyu-proto', JSON.stringify(S)); }catch(e){} }, 300); };
+
+const lv = id => S.tree[id]||0;
+const unlockedPatterns = () => {
+  const list = ['3'];
+  if(lv('asym')) list.push('441');
+  if(lv('high')) list.push('531');
+  if(S.balls>=4) list.push('4','53');
+  return list;
+};
+const derived = () => ({
+  interval: BASE.interval - 35*lv('speed'),
+  tol: BASE.tol + 12*lv('prec'),
+  fatigueRate: BASE.fatigue*(1-0.12*lv('stam')),
+  breath: 0.006*lv('breath'),
+  read: 0.15*lv('read'),
+  chase: 0.12*lv('chase'),
+  auto: 0.10*lv('auto'),
+  flow: lv('flow')?40:0,
+});
+
+// ---------- run ----------
+const R = { on:false };
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+let W = cv.width, H = cv.height;
+function fit(){
+  const r = cv.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio||1, 2);
+  W = Math.round(r.width); H = Math.round(r.width*0.62);
+  cv.style.height = H+'px';
+  cv.width = W*dpr; cv.height = H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize', fit); fit();
+
+function hands(){ return [{x:W*0.64, y:H*0.80},{x:W*0.36, y:H*0.80}]; } // 0=右 1=左
+
+function startRun(){
+  if(R.on || S.done) return;
+  const P = PATTERNS[S.pattern], D = derived();
+  Object.assign(R, {
+    on:true, t0:performance.now(), k:0, next:null, fatigue:0, streak:0, runBeats:0, runCatch:0,
+    bossDone:false, lastAuto:false, msg:'', msgT:0, ended:false,
+    interval:D.interval, D, P,
+    balls:[], hand:[[],[]],
+  });
+  R.bossAt = BASE.bossAt + 15*S.core;
+  for(let i=0;i<P.balls;i++){ const b={c:COLORS[i], f:null, h:i%2}; R.balls.push(b); R.hand[i%2].push(b); }
+  // カスケード系は右手に多く持つ
+  if(P.balls===3){ R.hand=[[R.balls[0],R.balls[2]],[R.balls[1]]]; R.balls[2].h=0; }
+  scheduleBeat();
+  document.getElementById('startBtn').textContent='やめる';
+}
+function scheduleBeat(){
+  const k = R.k;
+  const bt = R.t0 + R.interval*(k+1);
+  const auto = Math.random() < R.D.auto;
+  R.next = {k, bt, auto, thrown:false};
+}
+function bossActive(k){ return k>=R.bossAt && k<R.bossAt+BASE.bossLen; }
+function tolEff(k){
+  let t = R.D.tol*R.P.tol;
+  t *= 1-0.5*Math.min(R.fatigue,1);
+  if(bossActive(k)) t *= 0.65;
+  if(R.lastAuto) t += R.D.flow;
+  return t;
+}
+function throwBall(k, grade){ // grade: 'auto'|'clean'|'wobble'
+  const h = k%2, v = R.P.ss[k%R.P.ss.length];
+  let b = R.hand[h].shift();
+  if(!b) b = R.hand[1-h].shift();
+  if(b){
+    const to = (v%2===1)? 1-h : h;
+    const dwell = R.interval*0.45;
+    const dur = Math.max(v*R.interval - dwell, R.interval*0.5);
+    let peak = H*0.42*Math.pow(v/3,1.2); if(bossActive(k)) peak*=1.3; peak=Math.min(peak,H*0.74);
+    b.f = {from:h,to,t0:R.next.bt,dur,peak,wobble:grade==='wobble'?(Math.random()<.5?-1:1)*W*0.03:0};
+  }
+  R.next.thrown = true;
+  R.runBeats = k+1;
+  // 疲労
+  R.fatigue += R.D.fatigueRate;
+  if(grade!=='wobble') R.fatigue = Math.max(0, R.fatigue - R.D.breath);
+  // 資源
+  const gain = Math.round(R.P.mult*(1+0.5*(S.balls-3)));
+  S.catch += gain; S.totalCatches += gain; R.runCatch += gain;
+  if(grade==='wobble'){ R.streak=0; flash('ゆれ'); }
+  else {
+    R.streak++;
+    flash(grade==='auto'?'自動':'ぴったり');
+    if(R.streak % BASE.cleanEvery===0){ S.clean++; S.patClean[S.pattern]=(S.patClean[S.pattern]||0)+1; toast('クリーン +1 ('+R.P.name+')'); }
+  }
+  R.lastAuto = grade==='auto';
+  if(k===R.bossAt+BASE.bossLen-1 && !R.bossDone){ R.bossDone=true; S.core++; toast('見せ場を決めた。コア +1'); }
+  R.k++; scheduleBeat(); refreshWallet(); save();
+}
+function drop(){
+  if(!R.on) return;
+  R.on=false; R.ended=true;
+  S.runs++; S.bestRun=Math.max(S.bestRun,R.runBeats);
+  if(!S.recordOpen && S.totalCatches>=100){ S.recordOpen=true; toast('記録帳が開いた'); }
+  flash('落球');
+  document.getElementById('startBtn').textContent='投げ始める';
+  checkMilestones(); render(); save();
+}
+function input(){
+  if(!R.on){ startRun(); return; }
+  const n = R.next; if(!n || n.thrown || n.auto) return;
+  const now = performance.now(), e = Math.abs(now-n.bt), base = R.D.tol*R.P.tol;
+  if(now < n.bt - 2*base) { flash('早い'); return; }
+  const t = tolEff(n.k);
+  if(e<=t) throwBall(n.k,'clean');
+  else if(e<=2*t || Math.random()<R.D.chase) {
+    if(Math.random()<R.D.read) throwBall(n.k,'clean'); else throwBall(n.k,'wobble');
+  } else drop();
+}
+function tick(now){
+  if(R.on){
+    const n = R.next;
+    if(n && !n.thrown){
+      if(n.auto && now>=n.bt) throwBall(n.k,'auto');
+      else if(!n.auto && now > n.bt + 2*R.D.tol*R.P.tol) drop();
+    }
+    // 着地
+    for(const b of R.balls){ if(b.f && now>=b.f.t0+b.f.dur){ b.h=b.f.to; b.f=null; R.hand[b.h].push(b); } }
+  }
+  draw(now);
+  requestAnimationFrame(tick);
+}
+function flash(m){ R.msg=m; R.msgT=performance.now(); }
+
+// ---------- draw ----------
+function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function draw(now){
+  ctx.clearRect(0,0,W,H);
+  const hs = hands(), ink=css('--ink'), muted=css('--muted'), line=css('--line');
+  // 床
+  ctx.strokeStyle=line; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(W*0.2,H*0.86); ctx.lineTo(W*0.8,H*0.86); ctx.stroke();
+  // 手
+  for(const h of hs){ ctx.strokeStyle=ink; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(h.x,h.y+6,20,Math.PI*1.1,Math.PI*1.9); ctx.stroke(); }
+  // ボール
+  const r = Math.max(10, W*0.02);
+  const balls = R.balls||[];
+  for(const b of balls){
+    let x,y;
+    if(b.f){
+      const s = Math.min(1,(now-b.f.t0)/b.f.dur);
+      const a=hs[b.f.from], c=hs[b.f.to];
+      x = a.x+(c.x-a.x)*s + b.f.wobble*Math.sin(s*Math.PI);
+      y = a.y - b.f.peak*4*s*(1-s) - r;
+      // 軌道
+      ctx.strokeStyle=css('--ring'); ctx.lineWidth=1; ctx.beginPath();
+      for(let i=0;i<=20;i++){ const q=i/20; const px=a.x+(c.x-a.x)*q, py=a.y-b.f.peak*4*q*(1-q)-r; i?ctx.lineTo(px,py):ctx.moveTo(px,py); }
+      ctx.stroke();
+    } else {
+      const h=hs[b.h], idx=(R.hand[b.h]||[]).indexOf(b);
+      x=h.x + (idx?-r*1.4:0); y=h.y-r-2 + (idx?4:0);
+    }
+    ctx.fillStyle=css('--'+b.c); ctx.strokeStyle=ink; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  }
+  // 拍の輪
+  const cx=W/2, cy=H*0.80+r*0.2, r0=Math.max(18,W*0.035);
+  ctx.strokeStyle=muted; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(cx,cy,r0,0,Math.PI*2); ctx.stroke();
+  if(R.on && R.next){
+    const n=R.next, t=tolEff(n.k), dt=n.bt-now;
+    if(!n.thrown){
+      const band = r0*(t/R.interval)*2;
+      ctx.fillStyle=css('--ring'); ctx.beginPath(); ctx.arc(cx,cy,r0+band,0,Math.PI*2); ctx.arc(cx,cy,Math.max(2,r0-band),0,Math.PI*2,true); ctx.fill();
+      const rr = r0*(1+Math.max(0,dt)/R.interval*2.2);
+      ctx.strokeStyle = n.auto? muted : css('--amber'); ctx.lineWidth = n.auto?1.5:3;
+      if(n.auto) ctx.setLineDash([4,5]);
+      ctx.beginPath(); ctx.arc(cx,cy,rr,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+    }
+    if(bossActive(n.k)){ ctx.fillStyle=css('--amber'); ctx.font='700 14px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign='center'; ctx.fillText('見せ場 — 高く、狭く', cx, H*0.12); }
+    else if(n.k>=R.bossAt-8 && n.k<R.bossAt){ ctx.fillStyle=muted; ctx.font='500 13px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign='center'; ctx.fillText('あと '+(R.bossAt-n.k)+' 拍で見せ場', cx, H*0.12); }
+  } else if(!R.on) {
+    ctx.fillStyle=muted; ctx.font='500 14px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign='center';
+    ctx.fillText(S.done?'試作はここまで':(R.ended?'落球。もう一度投げ始める':'スペース、またはタップで始める'), cx, H*0.12);
+  }
+  // 判定文字
+  if(R.msg && now-R.msgT<600){
+    const a = 1-(now-R.msgT)/600;
+    ctx.globalAlpha=a; ctx.fillStyle = R.msg==='落球'||R.msg==='早い'?css('--bad'):(R.msg==='ゆれ'?css('--amber'):ink);
+    ctx.font='900 18px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign='center'; ctx.fillText(R.msg, cx, cy+r0+28); ctx.globalAlpha=1;
+  }
+  // HUD
+  document.getElementById('hBeat').textContent = R.runBeats||0;
+  document.getElementById('hStreak').textContent = R.streak||0;
+  document.getElementById('hRun').textContent = R.runCatch||0;
+  document.getElementById('hFat').style.width = Math.min(100,(R.fatigue||0)*100)+'%';
+}
+
+// ---------- ui ----------
+let tab='practice';
+const pane=document.getElementById('pane');
+function refreshWallet(){
+  document.getElementById('wCatch').textContent=S.catch;
+  document.getElementById('wClean').textContent=S.clean;
+  document.getElementById('wCore').textContent=S.core;
+  const rt=document.getElementById('recTab'); rt.classList.toggle('locked',!S.recordOpen);
+}
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),1800); }
+function canAfford(c){ return S[c.c]>=c.n; }
+function costText(c){ return c.n+' '+({catch:'キャッチ',clean:'クリーン',core:'コア'})[c.c]; }
+function reqOk(n){ return !n.req || Object.entries(n.req).every(([k,v])=>lv(k)>=v); }
+function reqText(n){ return Object.entries(n.req).map(([k,v])=>NODES.find(x=>x.id===k).name+' '+v).join('、')+' が必要'; }
+function prestigeReq(){
+  const need=['3','441','531'].map(p=>({p, ok:(S.patClean[p]||0)>=1}));
+  return {need, core:S.core>=1, ok:need.every(x=>x.ok)&&S.core>=1};
+}
+function render(){
+  refreshWallet();
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
+  let h='';
+  if(tab==='practice'){
+    const ul=unlockedPatterns();
+    h+='<h2>パターン</h2><div class="pat">';
+    for(const [id,p] of Object.entries(PATTERNS)){
+      if(p.balls>S.balls) continue;
+      const on=id===S.pattern, un=ul.includes(id);
+      h+=`<button data-pat="${id}" class="${on?'on':''}" ${un?'':'disabled'}><b>${p.name}</b><span>${un?p.desc:'身体の「'+(id==='441'?'非対称':'高投げ')+'」で解放'}</span></button>`;
+    }
+    h+='</div>';
+    const P=PATTERNS[S.pattern], D=derived();
+    h+=`<div class="note">${P.balls}球 ／ 1拍 ${D.interval}ms ／ 許容幅 ±${Math.round(D.tol*P.tol)}ms（疲労で狭まる） ／ 1拍のキャッチ ×${Math.round(P.mult*(1+0.5*(S.balls-3)))}<br>${BASE.cleanEvery}拍ノーミスでクリーン。${BASE.bossAt+15*S.core}拍目から見せ場（${BASE.bossLen}拍だけ輪が狭い）。抜ければコア。</div>`;
+    h+=`<div class="note">このパターンのクリーン：${S.patClean[S.pattern]||0}</div>`;
+  }
+  if(tab==='body'){
+    for(const br of BRANCHES){
+      h+=`<h2>${br}</h2>`;
+      for(const n of NODES.filter(x=>x.br===br)){
+        const l=lv(n.id), maxed=l>=n.max, c=maxed?null:n.cost(l), ok=reqOk(n);
+        h+=`<div class="node"><div class="n">${n.name}<em>${l}/${n.max}</em></div>`;
+        h+=`<div class="d">${n.desc}${!ok?`<div class="req">${reqText(n)}</div>`:''}</div>`;
+        if(maxed) h+=`<button class="max" disabled>習得済み</button>`;
+        else h+=`<button data-buy="${n.id}" ${ok&&canAfford(c)?'':'disabled'}>${costText(c)}</button>`;
+        h+='</div>';
+      }
+    }
+    const pr=prestigeReq();
+    h+='<div class="pres">';
+    if(S.balls===3){
+      h+=`<div class="n" style="font-weight:700">4球へ</div>`;
+      for(const x of pr.need) h+=`<p class="${x.ok?'ok':''}">${PATTERNS[x.p].name} でクリーン 1 以上 ${x.ok?'✓':''}</p>`;
+      h+=`<p class="${pr.core?'ok':''}">コア 1 ${pr.core?'✓':''}</p>`;
+      h+=`<p>球が増えると許容幅が狭まり、キャッチが増える。ツリーは持ち越し。</p>`;
+      h+=`<button class="btn" id="presBtn" ${pr.ok&&!R.on?'':'disabled'}>4球に増やす（コア 1）</button>`;
+    } else if(!S.done){
+      h+=`<div style="font-weight:700">5球へ</div><p>この試作は4球まで。ファウンテンと53でクリーンを取り、コアを1つ得たら完走扱い。</p>`;
+      const ok=(S.patClean['4']||0)>=1&&(S.patClean['53']||0)>=1&&S.core>=1;
+      h+=`<button class="btn" id="doneBtn" ${ok&&!R.on?'':'disabled'}>完走する</button>`;
+    } else h+='<p>完走済み。ここから先（5球、クラブ、路上、パッシング、舞台）は設計だけ。</p>';
+    h+='</div>';
+  }
+  if(tab==='record'){
+    if(!S.recordOpen) h+='<p class="note">通算100キャッチで開く。</p>';
+    else {
+      h+='<h2>節目</h2>';
+      for(const m of MILESTONES){ const d=S.milestones.includes(m.id); h+=`<div class="milestone"><span class="${d?'done':'todo'}">${m.label}</span><span class="${d?'done':'todo'}">${m.gtxt}${d?' ✓':''}</span></div>`; }
+      h+='<h2>記録</h2>';
+      h+=`<div class="milestone"><span>通算キャッチ</span><b>${S.totalCatches}</b></div>`;
+      h+=`<div class="milestone"><span>最長</span><b>${S.bestRun} 拍</b></div>`;
+      h+=`<div class="milestone"><span>投げた回数</span><b>${S.runs}</b></div>`;
+      for(const [id,p] of Object.entries(PATTERNS)) if(S.patClean[id]) h+=`<div class="milestone"><span>${p.name} クリーン</span><b>${S.patClean[id]}</b></div>`;
+    }
+  }
+  pane.innerHTML=h;
+  pane.querySelectorAll('[data-pat]').forEach(b=>b.onclick=()=>{ if(R.on) return; S.pattern=b.dataset.pat; save(); render(); });
+  pane.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{
+    const n=NODES.find(x=>x.id===b.dataset.buy), l=lv(n.id), c=n.cost(l);
+    if(!reqOk(n)||!canAfford(c)||l>=n.max) return;
+    S[c.c]-=c.n; S.tree[n.id]=l+1; save(); render();
+  });
+  const pb=pane.querySelector('#presBtn'); if(pb) pb.onclick=()=>{ if(!prestigeReq().ok) return; S.core-=1; S.balls=4; S.pattern='4'; toast('4球。輪が狭くなった'); save(); render(); };
+  const db=pane.querySelector('#doneBtn'); if(db) db.onclick=()=>{ S.done=true; toast('完走'); save(); render(); };
+}
+function checkMilestones(){
+  for(const m of MILESTONES){ if(!S.milestones.includes(m.id)&&m.test(S)){ S.milestones.push(m.id); for(const [k,v] of Object.entries(m.give)) S[k]+=v; toast(m.label+'：'+m.gtxt); } }
+}
+
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{ tab=b.dataset.tab; render(); });
+document.getElementById('startBtn').onclick=()=>{ if(R.on) drop(); else startRun(); };
+document.getElementById('resetBtn').onclick=()=>{ if(confirm('記録を全部消す？')){ S=fresh(); try{localStorage.removeItem('sankyu-proto');}catch(e){} R.on=false; R.balls=[]; R.runBeats=0; R.streak=0; R.runCatch=0; R.fatigue=0; document.getElementById('startBtn').textContent='投げ始める'; render(); } };
+cv.addEventListener('pointerdown', e=>{ e.preventDefault(); input(); });
+window.addEventListener('keydown', e=>{ if(e.code==='Space'||e.code==='Enter'){ if(e.target.tagName==='BUTTON'&&e.code==='Enter') return; e.preventDefault(); input(); } });
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>{});
+render(); requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
