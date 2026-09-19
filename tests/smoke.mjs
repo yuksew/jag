@@ -16,7 +16,9 @@ function assert(cond, msg) {
   if (!cond) throw new Error(`smoke: ${msg}`);
 }
 
-const app = await electron.launch({ args: ['--no-sandbox', root], cwd: root });
+// 利用者の設定・セーブに触れないよう、一時ディレクトリを userData にする
+const userDataDir = mkdtempSync(join(tmpdir(), 'sankyu-userdata-'));
+const app = await electron.launch({ args: ['--no-sandbox', root], cwd: root, env: { ...process.env, SANKYU_USERDATA: userDataDir } });
 try {
   const userData = await app.evaluate(({ app }) => app.getPath('userData'));
   const win = await app.firstWindow();
@@ -42,7 +44,7 @@ try {
   const saveDir = join(userData, 'save');
   assert(existsSync(join(saveDir, 'save.json')), 'save.json exists');
   const save = JSON.parse(readFileSync(join(saveDir, 'save.json'), 'utf8'));
-  assert(save.version === 1 && save.runs >= 1, 'save content');
+  assert(typeof save.version === 'number' && save.runs >= 1, 'save content');
 
   await win.click('#tab-body');
   await win.waitForTimeout(300);

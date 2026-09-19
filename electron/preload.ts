@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { API_KEY, ARG_PACKAGED, IPC, type LogLevel, type SankyuApi, type SaveReadResult } from './api';
+import { API_KEY, ARG_PACKAGED, IPC, type LogLevel, type SankyuApi, type SaveReadResult, type Settings } from './api';
 
 // electron-vite が package.json の version を define で埋め込む
 declare const __APP_VERSION__: string;
@@ -15,6 +15,20 @@ const api: SankyuApi = {
     clear: () => ipcRenderer.invoke(IPC.saveClear) as Promise<void>,
   },
   log: (level: LogLevel, message: string) => ipcRenderer.send(IPC.log, level, message),
+  settings: {
+    read: () => ipcRenderer.invoke(IPC.settingsRead) as Promise<Settings>,
+    readSync: () => ipcRenderer.sendSync(IPC.settingsReadSync) as Settings,
+    write: (settings: Settings) => ipcRenderer.invoke(IPC.settingsWrite, settings) as Promise<void>,
+  },
+  window: {
+    setFullscreen: (on: boolean) => ipcRenderer.invoke(IPC.windowFullscreen, on) as Promise<void>,
+    setZoom: (factor: number) => ipcRenderer.invoke(IPC.windowZoom, factor) as Promise<void>,
+    onFlushRequest: (cb) => {
+      ipcRenderer.on(IPC.flushRequest, () => {
+        void cb().finally(() => ipcRenderer.send(IPC.flushDone));
+      });
+    },
+  },
   tuning: {
     load: () => ipcRenderer.invoke(IPC.tuningLoad) as Promise<unknown>,
     onChange: (cb) => {

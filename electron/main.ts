@@ -1,15 +1,18 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { join } from 'node:path';
-import { ARG_PACKAGED, IPC, type LogLevel } from './api';
-import { log } from './log';
+import { ARG_PACKAGED, defaultSettings, IPC, type LogLevel } from './api';
+import { log, pruneLogs } from './log';
 import { clearSave, readSave, restoreBackup, writeSave } from './save';
+import { normalizeSettings, readSettings, writeSettings } from './settings';
 import { initSteam } from './steam';
 import { readOverride, watchOverride } from './tuning';
 
 const isDev = !app.isPackaged;
+let cachedSettings = defaultSettings();
 // userData は productName（三球）ではなく ASCII の固定名にする。
 // Steam Auto-Cloud のパス指定と開発時／本番の一致のため。ready より前に決める
-app.setPath('userData', join(app.getPath('appData'), 'sankyu'));
+// SANKYU_USERDATA でテスト用に差し替えられる（tests/smoke.mjs）
+app.setPath('userData', process.env['SANKYU_USERDATA'] ?? join(app.getPath('appData'), 'sankyu'));
 // App ID 取得前は Spacewar（480）で確認する（docs/STEAM.md）
 const STEAM_APP_ID = 480;
 
@@ -31,7 +34,24 @@ function createWindow(): BrowserWindow {
       sandbox: true,
       devTools: isDev,
       additionalArguments: app.isPackaged ? [ARG_PACKAGED] : [],
+      // 拍の基準時刻に AudioContext を使うので、操作前から音声コンテキストを動かせるようにする
+      autoplayPolicy: 'no-user-gesture-required',
     },
+  });
+
+  // 閉じる前に renderer にセーブを書かせる。応答が無くても 1.5 秒で閉じる
+  let flushed = false;
+  win.on('close', (event) => {
+    if (flushed || win.webContents.isDestroyed()) return;
+    event.preventDefault();
+    const done = (): void => {
+      if (flushed) return;
+      flushed = true;
+      win.close();
+    };
+    ipcMain.once(IPC.flushDone, done);
+    win.webContents.send(IPC.flushRequest);
+    setTimeout(done, 1500);
   });
 
   win.once('ready-to-show', () => win.show());
@@ -71,6 +91,22 @@ function registerIpc(): void {
   ipcMain.handle(IPC.saveRestore, () => restoreBackup());
   ipcMain.handle(IPC.saveClear, () => clearSave());
   ipcMain.handle(IPC.tuningLoad, () => readOverride());
+  ipcMain.handle(IPC.settingsRead, () => readSettings());
+  ipcMain.on(IPC.settingsReadSync, (e) => {
+    e.returnValue = cachedSettings;
+  });
+  ipcMain.handle(IPC.settingsWrite, async (_e, settings: unknown) => {
+    if (typeof settings !== 'object' || settings === null) throw new Error('settings:write expects an object');
+    cachedSettings = normalizeSettings(settings);
+    await writeSettings(cachedSettings);
+  });
+  ipcMain.handle(IPC.windowFullscreen, (e, on: unknown) => {
+    BrowserWindow.fromWebContents(e.sender)?.setFullScreen(on === true);
+  });
+  ipcMain.handle(IPC.windowZoom, (e, factor: unknown) => {
+    const f = typeof factor === 'number' && Number.isFinite(factor) ? Math.min(2, Math.max(0.5, factor)) : 1;
+    e.sender.setZoomFactor(f);
+  });
   ipcMain.on(IPC.log, (_e, level: unknown, message: unknown) => {
     const lv: LogLevel = level === 'error' || level === 'warn' ? level : 'info';
     log(lv, String(message), 'renderer');
@@ -82,9 +118,16 @@ process.on('unhandledRejection', (e) => log('error', `unhandledRejection: ${Stri
 
 const steam = initSteam(STEAM_APP_ID);
 
-void app.whenReady().then(() => {
+void app.whenReady().then(async () => {
   registerIpc();
-  createWindow();
+  cachedSettings = await readSettings();
+  const settings = cachedSettings;
+  const win = createWindow();
+  if (settings.display.fullscreen) win.setFullScreen(true);
+  if (settings.display.scale !== 100) win.webContents.setZoomFactor(settings.display.scale / 100);
+  void pruneLogs().then((removed) => {
+    if (removed.length) log('info', `pruned logs: ${removed.join(',')}`);
+  });
   log('info', `start v${app.getVersion()} packaged=${String(app.isPackaged)} steam=${String(steam.available)}`);
 
   app.on('activate', () => {
