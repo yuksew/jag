@@ -1,5 +1,7 @@
 // 演出。きらめき・紙吹雪・落ちた球・浮かぶ文字。状態は Arena の中だけで持ち、core には触れない。
-import { rgba } from './palette';
+import { daub } from './brush';
+import { lighten, rgba } from './palette';
+import type { ArtStyle } from './style';
 
 interface Particle {
   kind: 'spark' | 'confetti';
@@ -185,8 +187,10 @@ export class Effects {
     }
   }
 
-  /** きらめきと紙吹雪。球より手前に描く */
-  drawParticles(ctx: CanvasRenderingContext2D): void {
+  /** きらめきと紙吹雪。球より手前に描く。絵柄で形を変える */
+  drawParticles(ctx: CanvasRenderingContext2D, style: ArtStyle = 'vector', ink = 'rgba(0,0,0,0.8)'): void {
+    if (style === 'ink') return this.drawParticlesInk(ctx, ink);
+    if (style === 'paint') return this.drawParticlesPaint(ctx);
     for (const p of this.particles) {
       const a = Math.min(1, p.life / (p.maxLife * 0.4));
       if (p.kind === 'spark') {
@@ -209,7 +213,61 @@ export class Effects {
     }
   }
 
-  drawTexts(ctx: CanvasRenderingContext2D, font: string, stroke: string): void {
+  /** ink: きらめきは米印の線、紙吹雪は線で囲んだ小さな紙 */
+  private drawParticlesInk(ctx: CanvasRenderingContext2D, ink: string): void {
+    ctx.lineCap = 'round';
+    for (const p of this.particles) {
+      const a = Math.min(1, p.life / (p.maxLife * 0.4));
+      if (p.kind === 'spark') {
+        ctx.strokeStyle = rgba(p.color, a);
+        ctx.lineWidth = 1.4;
+        const s = p.size * 1.8;
+        ctx.beginPath();
+        for (let k = 0; k < 3; k++) {
+          const ang = (k / 3) * Math.PI + p.x * 0.01;
+          ctx.moveTo(p.x - Math.cos(ang) * s, p.y - Math.sin(ang) * s);
+          ctx.lineTo(p.x + Math.cos(ang) * s, p.y + Math.sin(ang) * s);
+        }
+        ctx.stroke();
+      } else {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        const hh = p.size / 4 + Math.abs(Math.cos(p.rot * 3)) * p.size * 0.2;
+        ctx.fillStyle = rgba(p.color, a * 0.6);
+        ctx.fillRect(-p.size / 2 + 0.8, -hh + 0.8, p.size, hh * 2);
+        ctx.strokeStyle = rgba(ink, a);
+        ctx.lineWidth = 1.1;
+        ctx.strokeRect(-p.size / 2, -hh, p.size, hh * 2);
+        ctx.restore();
+      }
+    }
+    ctx.lineCap = 'butt';
+  }
+
+  /** paint: きらめきは柔らかい光の粒、紙吹雪は筆のひと触れ */
+  private drawParticlesPaint(ctx: CanvasRenderingContext2D): void {
+    ctx.globalCompositeOperation = 'lighter';
+    for (const p of this.particles) {
+      if (p.kind !== 'spark') continue;
+      const a = Math.min(1, p.life / (p.maxLife * 0.4));
+      const ang = Math.atan2(p.vy, p.vx);
+      daub(ctx, p.x, p.y, p.size * 2.6, p.size * 1.1, ang, rgba(p.color, a * 0.35));
+      daub(ctx, p.x, p.y, p.size * 1.1, p.size * 0.7, ang, rgba(lighten(p.color, 0.5), a * 0.9));
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    for (const p of this.particles) {
+      if (p.kind !== 'confetti') continue;
+      const a = Math.min(1, p.life / (p.maxLife * 0.4));
+      const ang = p.rot;
+      const sq = 0.35 + Math.abs(Math.cos(p.rot * 3)) * 0.65;
+      daub(ctx, p.x + 1, p.y + 1.5, p.size * 0.9, p.size * 0.45 * sq, ang, rgba(p.color, a * 0.35));
+      daub(ctx, p.x, p.y, p.size * 0.9, p.size * 0.45 * sq, ang, rgba(p.color, a));
+      daub(ctx, p.x - p.size * 0.2, p.y - p.size * 0.1, p.size * 0.35, p.size * 0.15 * sq, ang, rgba(lighten(p.color, 0.5), a * 0.8));
+    }
+  }
+
+  drawTexts(ctx: CanvasRenderingContext2D, font: string, stroke: string, style: ArtStyle = 'vector'): void {
     if (!this.texts.length) return;
     ctx.font = font;
     ctx.textAlign = 'center';
@@ -218,11 +276,36 @@ export class Effects {
     for (const t of this.texts) {
       const a = Math.min(1, t.life / (t.maxLife * 0.5));
       ctx.globalAlpha = a;
-      ctx.strokeStyle = stroke;
-      ctx.strokeText(t.text, t.x, t.y);
-      ctx.fillStyle = t.color;
-      ctx.fillText(t.text, t.x, t.y);
+      styledText(ctx, t.text, t.x, t.y, t.color, stroke, style);
     }
     ctx.globalAlpha = 1;
+  }
+}
+
+/**
+ * 絵柄に合わせた文字。vector は縁取り、ink は紙色の縁と二重に引いたインク、paint は柔らかい影。
+ * ctx.font / textAlign / lineWidth は呼び出し側で決める。
+ */
+export function styledText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, fill: string, stroke: string, style: ArtStyle): void {
+  if (style === 'paint') {
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.fillText(text, x + 1, y + 2);
+    ctx.fillText(text, x - 1, y + 2);
+    ctx.fillText(text, x, y + 3);
+    ctx.fillStyle = fill;
+    ctx.fillText(text, x, y);
+    return;
+  }
+  ctx.strokeStyle = stroke;
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = fill;
+  ctx.fillText(text, x, y);
+  if (style === 'ink') {
+    // 二度描きしたような線
+    const lw = ctx.lineWidth;
+    ctx.lineWidth = 0.8;
+    ctx.strokeStyle = rgba(fill, 0.55);
+    ctx.strokeText(text, x + 0.9, y + 0.6);
+    ctx.lineWidth = lw;
   }
 }
