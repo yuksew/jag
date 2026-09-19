@@ -17,8 +17,10 @@ import {
 } from '../core';
 import { drawCurtains, drawSpotlight, drawStageLights, FLOOR_Y, renderBackdrop } from './backdrop';
 import { daub, inkCircle, inkStroke, lcg, wobblyCircle, wobblyEllipse, type Rnd } from './brush';
+import { CharacterSprites, currentCharacter, watchCharacter, type CharacterId } from './character';
 import { Effects, styledText } from './effects';
 import { lighten, readPalette, rgba, watchPalette, type Palette } from './palette';
+import { Acting, type BaseMood } from './pose';
 import { BallSprites, ClubSprites, drawFigure, figureColors, type HandPose, type Point, type SpriteEnv } from './sprites';
 import { currentStyle, watchStyle, type ArtStyle } from './style';
 
@@ -60,6 +62,10 @@ const CURTAIN_MS = 1800;
 const SHAKE_MS = 300;
 /** ink のジッタを更新する間隔（フレーム） */
 const JITTER_FRAMES = 8;
+/** 投げの予備動作（拍のこの時間前から手が沈む） */
+const ANTICIPATE_MS = 170;
+/** 足の接地。手の基準からの距離（描画幅に対する割合） */
+const FEET_BELOW_HANDS = 0.085;
 
 export class Arena {
   private readonly ctx: CanvasRenderingContext2D;
@@ -69,10 +75,14 @@ export class Arena {
   private pal: Palette;
   private palDirty = false;
   private style: ArtStyle;
+  private character: CharacterId;
   private frame = 0;
   private backdrop: { key: string; canvas: HTMLCanvasElement } | null = null;
   private readonly ballSprites = new BallSprites();
   private readonly clubSprites = new ClubSprites();
+  private readonly characterSprites = new CharacterSprites();
+  private readonly acting = new Acting();
+  private readonly partnerActing = new Acting(0.55);
   private readonly fx = new Effects();
   private readonly pending: RunEvent[] = [];
   private lastNow = -1;
@@ -102,10 +112,14 @@ export class Arena {
     this.ctx = ctx;
     this.pal = readPalette();
     this.style = currentStyle();
+    this.character = currentCharacter();
     watchPalette(() => {
       this.palDirty = true;
     });
     watchStyle(() => {
+      this.palDirty = true;
+    });
+    watchCharacter(() => {
       this.palDirty = true;
     });
     this.fit();
@@ -125,6 +139,7 @@ export class Arena {
     this.backdrop = null;
     this.ballSprites.clear();
     this.clubSprites.clear();
+    this.characterSprites.clear();
   }
 
   /** ランのイベントを演出に流す。次の draw で処理する */
@@ -141,8 +156,8 @@ export class Arena {
       ];
     }
     return [
-      { x: this.w * 0.64, y: this.h * 0.8 },
-      { x: this.w * 0.36, y: this.h * 0.8 },
+      { x: this.w * 0.605, y: this.h * 0.8 },
+      { x: this.w * 0.395, y: this.h * 0.8 },
     ];
   }
 
@@ -174,6 +189,12 @@ export class Arena {
       if (run.on && !reduce) {
         const phase = (now - run.t0) / run.intervalMs;
         dy += u * 0.004 * Math.sin(phase * Math.PI * 2 + i * Math.PI);
+        // 投げの予備動作: 次の拍の手は少し前から沈み、拍で戻る
+        const n = run.next;
+        if (n && !n.thrown && throwingHand(n.k) === i) {
+          const dtb = n.at - now;
+          if (dtb > 0 && dtb < ANTICIPATE_MS) dy += u * 0.009 * Math.sin(Math.PI * (1 - dtb / ANTICIPATE_MS));
+        }
         const st = now - this.throwAt[i];
         if (st >= 0) dy -= u * 0.016 * Math.exp(-st / 130);
         const ct = now - this.catchAt[i];
@@ -197,8 +218,10 @@ export class Arena {
     for (const e of this.pending) {
       switch (e.type) {
         case 'throw': {
+          if (e.grade === 'clean') this.acting.react('clean', now);
           if (e.grade === 'wobble') {
             this.shakeUntil = now + SHAKE_MS;
+            this.acting.react('wobble', now, throwingHand(e.k) === 0 ? 1 : -1);
           } else if (!reduce) {
             const h = hs[throwingHand(e.k)];
             const color = e.grade === 'clean' ? pal.amber : e.grade === 'partner' ? pal.coral : pal.muted;
@@ -211,22 +234,29 @@ export class Arena {
           this.shakeUntil = now + SHAKE_MS * 0.7;
           break;
         case 'clean':
+          this.acting.react('bonus', now);
+          this.partnerActing.react('bonus', now);
           if (!reduce) fx.confetti(W / 2, H * 0.12, W * 0.5, confettiColors, 40);
           break;
         case 'showcase-cleared':
           this.burstAt = now;
+          this.acting.react('bonus', now);
           if (!reduce) fx.confetti(W / 2, H * 0.1, W * 0.7, confettiColors, 90);
           break;
         case 'flash7':
           this.burstAt = now;
+          this.acting.react('bonus', now);
           if (!reduce) fx.confetti(W / 2, H * 0.08, W * 0.9, confettiColors, 120);
           break;
         case 'show-complete':
           this.burstAt = now;
           this.curtainCloseAt = now;
+          this.acting.react('complete', now);
+          this.partnerActing.react('complete', now);
           if (!reduce) fx.confetti(W / 2, H * 0.08, W * 0.9, confettiColors, 160);
           break;
         case 'applause': {
+          this.acting.react('applause', now);
           this.applauseSide = -this.applauseSide;
           const x = W * (0.5 + this.applauseSide * 0.38) + (Math.random() - 0.5) * W * 0.08;
           fx.float(x, H * 0.84, `+${e.gain}`, pal.amber);
@@ -234,6 +264,8 @@ export class Arena {
         }
         case 'drop':
           this.dropPending = true;
+          this.acting.react('drop', now);
+          this.partnerActing.react('drop', now);
           break;
         default:
           break;
@@ -423,9 +455,11 @@ export class Arena {
       this.palDirty = false;
       this.pal = readPalette();
       this.style = currentStyle();
+      this.character = currentCharacter();
       this.backdrop = null;
       this.ballSprites.clear();
       this.clubSprites.clear();
+      this.characterSprites.clear();
     }
     const { ctx, w: W, h: H, pal, fx, style } = this;
     const reduce = pal.reduceMotion;
@@ -447,6 +481,7 @@ export class Arena {
     }
     this.prevOn = run.on;
 
+    const showcase = run.on && run.next !== null && inShowcase(run.next.k, run.showcaseAt);
     this.consumeEvents(now, hs);
     if (this.dropPending) this.startDrop(now, run, hs, r);
 
@@ -470,7 +505,6 @@ export class Arena {
     ctx.drawImage(this.backdrop.canvas, 0, 0, W, H);
 
     // 光。舞台は常に、見せ場はスポットライト
-    const showcase = run.on && run.next !== null && inShowcase(run.next.k, run.showcaseAt);
     const wantSpot = showcase ? 1 : stage && run.on ? 0.55 : stage ? 0.25 : 0;
     this.spot = reduce ? wantSpot : this.spot + (wantSpot - this.spot) * Math.min(1, dt / SPOT_FADE_MS);
     if (stage) drawStageLights(ctx, W, H, pal, 1, style);
@@ -478,7 +512,36 @@ export class Arena {
 
     // ジャグラー（と相方）
     const poses = this.handPoses(now, run, view.held, hs);
-    if (prop === 'passing') {
+    const mood: BaseMood = run.on ? (showcase ? 'showcase' : 'run') : state.done ? 'done' : run.ended ? 'dropped' : 'idle';
+    this.acting.setMood(mood);
+    this.partnerActing.setMood(mood === 'showcase' ? 'run' : mood);
+    // 一番高い球（視線の先）
+    let top: Point | null = null;
+    for (const b of view.balls) {
+      const f = b.flight;
+      if (!f || this.hidden.has(b.index)) continue;
+      const p = this.flightPos(f, Math.min(1, (now - f.t0) / f.durationMs), hs, r);
+      if (!top || p.y < top.y) top = p;
+    }
+    const beatPhase = run.on ? (((now - run.t0) / run.intervalMs) % 1 + 1) % 1 : null;
+    const lookFrom = (hx: number, hy: number): [number, number] | null =>
+      top ? [Math.max(-1, Math.min(1, (top.x - hx) / (W * 0.3))), Math.max(-1, Math.min(1, (top.y - hy) / (H * 0.35)))] : null;
+    const feetY = hs[0].y + W * FEET_BELOW_HANDS;
+    const headY = hs[0].y - W * 0.16;
+    if (style === 'vector') {
+      const base = { unit: W, handY: hs[0].y, feetY, pal, dpr: this.dpr, id: this.character };
+      if (prop === 'passing') {
+        const x0 = hs[0].x - W * 0.065;
+        const x1 = hs[1].x + W * 0.065;
+        const pose0 = this.acting.pose(now, { lookAt: lookFrom(x0, headY), beatPhase, reduceMotion: reduce });
+        const pose1 = this.partnerActing.pose(now, { lookAt: lookFrom(x1, headY), beatPhase, reduceMotion: reduce });
+        this.characterSprites.draw(ctx, { ...base, partner: false, x: x0, hands: [poses[0], null], facing: 1, pose: pose0 });
+        this.characterSprites.draw(ctx, { ...base, partner: true, x: x1, hands: [null, poses[1]], facing: -1, pose: pose1 });
+      } else {
+        const pose = this.acting.pose(now, { lookAt: lookFrom(W / 2, headY), beatPhase, reduceMotion: reduce });
+        this.characterSprites.draw(ctx, { ...base, partner: false, x: W / 2, hands: poses, facing: 0, pose });
+      }
+    } else if (prop === 'passing') {
       drawFigure(ctx, {
         x: hs[0].x - W * 0.065,
         handY: hs[0].y,
