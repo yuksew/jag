@@ -1,51 +1,79 @@
 // ヘッダの通貨、練習場下の HUD、開始／停止ボタン。core の状態を読むだけ
-import type { RunState, SaveState } from '../core';
+import { inShowcase, type RunState, type SaveState } from '../core';
 import { t } from '../i18n';
 import { byId } from './dom';
+import { CURRENCY_ICON } from './icons';
+
+/** 見せ場のこの拍数前から HUD のラベルを予告色にする（Canvas の予告と同じ） */
+const SHOWCASE_WARN_BEATS = 8;
 
 export class Hud {
-  private readonly wCatch: HTMLElement;
-  private readonly wClean: HTMLElement;
-  private readonly wCore: HTMLElement;
-  private readonly wApplause: HTMLElement;
+  private readonly wallets: Record<'catch' | 'clean' | 'core' | 'applause' | 'sp', HTMLElement>;
   private readonly hBeat: HTMLElement;
+  private readonly hBeatLabel: HTMLElement;
+  private readonly hBeatTile: HTMLElement;
   private readonly hStreak: HTMLElement;
   private readonly hRun: HTMLElement;
   private readonly hFat: HTMLElement;
+  private readonly hFatBox: HTMLElement;
   readonly startBtn: HTMLButtonElement;
+  private last: Record<string, string> = {};
 
   constructor() {
     const wallet = byId('wallet');
+    const card = (k: 'catch' | 'clean' | 'core' | 'applause' | 'sp', label: string, hidden: boolean): string =>
+      `<div class="card c-${k}" id="w-${k}-box" ${hidden ? 'hidden' : ''}>${CURRENCY_ICON[k]}<b id="w-${k}">0</b><span>${label}</span></div>`;
     wallet.innerHTML =
-      (['catch', 'clean', 'core'] as const).map((k) => `<div><b id="w-${k}">0</b><span>${t.currency[k]}</span></div>`).join('') +
-      `<div id="w-applause-box" hidden><b id="w-applause">0</b><span>${t.applause}</span></div>` +
-      `<div id="w-sp-box" hidden><b id="w-sp">0</b><span>${t.currency.sp}</span></div>`;
+      card('catch', t.currency.catch, false) +
+      card('clean', t.currency.clean, false) +
+      card('core', t.currency.core, false) +
+      card('applause', t.applause, true) +
+      card('sp', t.currency.sp, true);
     const hud = byId('hud');
     hud.innerHTML =
       `<div class="stat">` +
-      `<div>${t.hud.beat} <b id="h-beat">0</b></div>` +
-      `<div>${t.hud.streak} <b id="h-streak">0</b></div>` +
-      `<div>${t.hud.run} <b id="h-run">0</b></div>` +
-      `<div>${t.hud.fatigue} <span class="fat"><i id="h-fat"></i></span></div>` +
+      `<div class="tile" id="h-beat-tile"><span class="lb" id="h-beat-label">${t.hud.beat}</span><b id="h-beat">0</b></div>` +
+      `<div class="tile"><span class="lb">${t.hud.streak}</span><b id="h-streak">0</b></div>` +
+      `<div class="tile"><span class="lb">${t.hud.run}</span><b id="h-run">0</b></div>` +
+      `<div class="tile fatigue" id="h-fat-box"><span class="lb">${t.hud.fatigue}</span><span class="fat"><i id="h-fat"></i></span></div>` +
       `</div><button class="btn" id="start-btn">${t.buttons.start}</button>`;
-    this.wCatch = byId('w-catch');
-    this.wClean = byId('w-clean');
-    this.wCore = byId('w-core');
-    this.wApplause = byId('w-applause');
+    this.wallets = {
+      catch: byId('w-catch'),
+      clean: byId('w-clean'),
+      core: byId('w-core'),
+      applause: byId('w-applause'),
+      sp: byId('w-sp'),
+    };
     this.hBeat = byId('h-beat');
+    this.hBeatLabel = byId('h-beat-label');
+    this.hBeatTile = byId('h-beat-tile');
     this.hStreak = byId('h-streak');
     this.hRun = byId('h-run');
     this.hFat = byId('h-fat');
+    this.hFatBox = byId('h-fat-box');
     this.startBtn = byId<HTMLButtonElement>('start-btn');
   }
 
+  /** 数字を書き換え、変わったときだけ短く弾ませる */
+  private setNum(el: HTMLElement, key: string, value: number): void {
+    const s = String(value);
+    if (this.last[key] === s) return;
+    const first = this.last[key] === undefined;
+    this.last[key] = s;
+    el.textContent = s;
+    if (first) return;
+    el.classList.remove('bump');
+    void el.offsetWidth; // アニメーションを再始動させる
+    el.classList.add('bump');
+  }
+
   wallet(state: SaveState): void {
-    this.wCatch.textContent = String(state.catch);
-    this.wClean.textContent = String(state.clean);
-    this.wCore.textContent = String(state.core);
-    this.wApplause.textContent = String(state.applause);
+    this.setNum(this.wallets.catch, 'catch', state.catch);
+    this.setNum(this.wallets.clean, 'clean', state.clean);
+    this.setNum(this.wallets.core, 'core', state.core);
+    this.setNum(this.wallets.applause, 'applause', state.applause);
+    this.setNum(this.wallets.sp, 'sp', state.sp);
     byId('w-applause-box').hidden = !(state.applause > 0 || state.shown.length > 0 || state.mode === 'street');
-    byId('w-sp').textContent = String(state.sp);
     byId('w-sp-box').hidden = !(state.sp > 0 || state.balls > 3);
   }
 
@@ -53,7 +81,25 @@ export class Hud {
     this.hBeat.textContent = String(run.beats);
     this.hStreak.textContent = String(run.streak);
     this.hRun.textContent = run.prop === 'street' ? t.street.runApplause(run.applause) : String(run.catches);
-    this.hFat.style.width = `${Math.min(100, run.fatigue * 100)}%`;
+    const f = Math.min(1, Math.max(0, run.fatigue));
+    this.hFat.style.width = `${f * 100}%`;
+    this.hFatBox.classList.toggle('mid', f >= 0.4 && f < 0.7);
+    this.hFatBox.classList.toggle('hi', f >= 0.7);
+    // 見せ場の予告と最中はラベルを変えて色を付ける
+    let label = t.hud.beat;
+    let hot = false;
+    if (run.on && !run.showcaseDone) {
+      if (inShowcase(run.k, run.showcaseAt)) {
+        label = t.hud.showcase;
+        hot = true;
+      } else if (run.k >= run.showcaseAt - SHOWCASE_WARN_BEATS && run.k < run.showcaseAt) {
+        label = t.hud.showcaseIn(run.showcaseAt - run.k);
+        hot = true;
+      }
+    }
+    if (this.hBeatLabel.textContent !== label) this.hBeatLabel.textContent = label;
+    this.hBeatTile.classList.toggle('hot', hot);
     this.startBtn.textContent = run.on ? t.buttons.stop : t.buttons.start;
+    this.startBtn.classList.toggle('stop', run.on);
   }
 }
