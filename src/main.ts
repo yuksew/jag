@@ -4,8 +4,10 @@ import {
   applyPrestige,
   applyTuningOverride,
   buy,
+  convertCatches,
   isClubId,
   selectClub,
+  selectStreet,
   checkAchievements,
   createRun,
   endRun,
@@ -78,6 +80,21 @@ const pane = new Pane(
       scheduleSave();
       render();
     },
+    selectStreet(id: PatternId) {
+      if (run.on) return;
+      if (!selectStreet(state)) return;
+      state.pattern = id;
+      scheduleSave();
+      render();
+    },
+    convert() {
+      const gained = convertCatches(state);
+      if (gained <= 0) return;
+      toast.show(t.toast.converted(gained));
+      unlockAchievements();
+      flushSave();
+      render();
+    },
     buy(id) {
       if (!buy(state, id)) return;
       flushSave();
@@ -132,6 +149,13 @@ function onEvents(events: RunEvent[]): void {
         break;
       case 'flash7':
         toast.show(t.toast.flash7);
+        paneDirty = true;
+        break;
+      case 'applause':
+        walletDirty = true;
+        break;
+      case 'shown':
+        if (!isClubId(e.patternId)) toast.show(t.toast.shown(t.patterns[e.patternId].name, e.bonus));
         paneDirty = true;
         break;
       case 'showcase-cleared':

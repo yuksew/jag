@@ -1,7 +1,13 @@
 // 右側のタブ（練習場・身体・記録帳）。状態変更は actions 経由で core の関数を呼ぶ
 import {
+  applauseRate,
   ballEffects,
   BRANCHES,
+  canConvert,
+  isBranchOpen,
+  isShown,
+  manualYield,
+  streetPatterns,
   catchGain,
   clubCleans,
   clubPattern,
@@ -37,6 +43,8 @@ export type Tab = TabId;
 export interface PaneActions {
   selectPattern(id: PatternId): void;
   selectClub(spins: Spins): void;
+  selectStreet(id: PatternId): void;
+  convert(): void;
   buy(id: NodeId): void;
   prestige(): void;
 }
@@ -81,9 +89,28 @@ export class Pane {
     else if (this.tab === 'body') h = this.body(state, run);
     else if (this.tab === 'record') h = this.record(state);
     else if (this.tab === 'club') h = this.club(state);
+    else if (this.tab === 'street') h = this.street(state, run);
     else h = `<p class="note">${esc(t.tabLocked[this.tab] ?? '')}</p>`;
     this.paneEl.innerHTML = h;
     this.bind(run);
+  }
+
+  private street(state: SaveState, run: RunState): string {
+    const ids = streetPatterns(state);
+    let h = `<h2>${t.street.head}</h2><div class="pat">`;
+    for (const id of ids) {
+      const on = state.mode === 'street' && state.pattern === id;
+      const shown = isShown(state, id);
+      h += `<button data-street="${id}" class="${on ? 'on' : ''}"><b>${esc(t.patterns[id].name)}</b>`;
+      h += `<span>${shown ? `${t.street.shown} ${t.prestige.check}` : esc(t.patterns[id].desc)}</span></button>`;
+    }
+    h += '</div>';
+    const rate = applauseRate(state);
+    h += `<div class="note">${esc(t.street.rate(Math.round(rate * 1000) / 1000))}<br>${esc(t.street.rateNote(state.shown.length))}<br>${esc(t.street.perform)}</div>`;
+    h += `<h2>${t.street.convertHead}</h2>`;
+    h += `<button class="btn ghost" id="convert-btn" ${canConvert(state) && !run.on ? '' : 'disabled'}>${esc(t.street.convert(TUNING.street.manualChunk, manualYield(state)))}</button>`;
+    h += `<div class="note">${esc(t.street.convertNote)}</div>`;
+    return h;
   }
 
   private club(state: SaveState): string {
@@ -147,6 +174,7 @@ export class Pane {
   private body(state: SaveState, run: RunState): string {
     let h = '';
     for (const br of BRANCHES) {
+      if (!isBranchOpen(state, br)) continue;
       h += `<h2>${t.branches[br]}</h2>`;
       for (const n of nodesIn(br)) {
         const l = level(state, n.id);
@@ -223,6 +251,14 @@ export class Pane {
         this.actions.selectClub(Number(b.dataset['spin']) as Spins);
       };
     }
+    for (const b of this.paneEl.querySelectorAll<HTMLButtonElement>('[data-street]')) {
+      b.onclick = () => {
+        if (run.on) return;
+        this.actions.selectStreet(b.dataset['street'] as PatternId);
+      };
+    }
+    const cb = this.paneEl.querySelector<HTMLButtonElement>('#convert-btn');
+    if (cb) cb.onclick = () => this.actions.convert();
     for (const b of this.paneEl.querySelectorAll<HTMLButtonElement>('[data-buy]')) {
       b.onclick = () => this.actions.buy(node(b.dataset['buy'] as NodeId).id);
     }

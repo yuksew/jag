@@ -7,6 +7,7 @@ export class Hud {
   private readonly wCatch: HTMLElement;
   private readonly wClean: HTMLElement;
   private readonly wCore: HTMLElement;
+  private readonly wApplause: HTMLElement;
   private readonly hBeat: HTMLElement;
   private readonly hStreak: HTMLElement;
   private readonly hRun: HTMLElement;
@@ -15,9 +16,9 @@ export class Hud {
 
   constructor() {
     const wallet = byId('wallet');
-    wallet.innerHTML = (['catch', 'clean', 'core'] as const)
-      .map((k) => `<div><b id="w-${k}">0</b><span>${t.currency[k]}</span></div>`)
-      .join('');
+    wallet.innerHTML =
+      (['catch', 'clean', 'core'] as const).map((k) => `<div><b id="w-${k}">0</b><span>${t.currency[k]}</span></div>`).join('') +
+      `<div id="w-applause-box" hidden><b id="w-applause">0</b><span>${t.applause}</span></div>`;
     const hud = byId('hud');
     hud.innerHTML =
       `<div class="stat">` +
@@ -29,6 +30,7 @@ export class Hud {
     this.wCatch = byId('w-catch');
     this.wClean = byId('w-clean');
     this.wCore = byId('w-core');
+    this.wApplause = byId('w-applause');
     this.hBeat = byId('h-beat');
     this.hStreak = byId('h-streak');
     this.hRun = byId('h-run');
@@ -40,12 +42,14 @@ export class Hud {
     this.wCatch.textContent = String(state.catch);
     this.wClean.textContent = String(state.clean);
     this.wCore.textContent = String(state.core);
+    this.wApplause.textContent = String(state.applause);
+    byId('w-applause-box').hidden = !(state.applause > 0 || state.shown.length > 0 || state.mode === 'street');
   }
 
   run(run: RunState): void {
     this.hBeat.textContent = String(run.beats);
     this.hStreak.textContent = String(run.streak);
-    this.hRun.textContent = String(run.catches);
+    this.hRun.textContent = run.prop === 'street' ? t.street.runApplause(run.applause) : String(run.catches);
     this.hFat.style.width = `${Math.min(100, run.fatigue * 100)}%`;
     this.startBtn.textContent = run.on ? t.buttons.stop : t.buttons.start;
   }
