@@ -26,6 +26,7 @@ import {
   type PropPatternId,
 } from './patterns';
 import type { PracticeMode, SaveState } from './state';
+import { applauseRate, registerShown } from './street';
 import { derived, type Derived } from './tree';
 import { TUNING, type Spins } from './tuning';
 import type { Hand, Ms, Rng, ThrowGrade } from './types';
@@ -81,6 +82,12 @@ export interface RunState {
   cleanEvery: number;
   /** 球数による高度係数 */
   heightFactor: number;
+  /** 路上: このランで得た拍手 */
+  applause: number;
+  /** 路上: 拍手の端数の持ち越し */
+  applauseAcc: number;
+  /** 路上: キャッチ 1 つあたりの拍手（ラン開始時に固定） */
+  applauseRate: number;
   balls: Ball[];
   /** 各手が持つ球の index。先頭から投げる */
   hands: [number[], number[]];
@@ -92,6 +99,8 @@ export type RunEvent =
   | { type: 'clean'; patternId: PropPatternId; prop: PracticeMode; spins: Spins; count: number }
   | { type: 'showcase-cleared' }
   | { type: 'flash7' }
+  | { type: 'applause'; gain: number }
+  | { type: 'shown'; patternId: PropPatternId; bonus: number }
   | { type: 'drop' }
   | { type: 'run-end'; beats: number; catches: number }
   | { type: 'record-open' }
@@ -119,6 +128,9 @@ export function createRun(): RunState {
     spins: 1,
     cleanEvery: TUNING.clean.everyBeats[3],
     heightFactor: 1,
+    applause: 0,
+    applauseAcc: 0,
+    applauseRate: 0,
     balls: [],
     hands: [[], []],
   };
@@ -149,6 +161,9 @@ export function startRun(run: RunState, state: SaveState, now: Ms, rng: Rng): bo
   run.spins = state.mode === 'club' ? state.spins : 1;
   run.cleanEvery = effects.cleanEvery;
   run.heightFactor = effects.heightFactor * pattern.heightFactor;
+  run.applause = 0;
+  run.applauseAcc = 0;
+  run.applauseRate = state.mode === 'street' ? applauseRate(state) : 0;
   run.balls = initialHands(pattern.balls).map((hand, index) => ({ index, hand, flight: null }));
   run.hands = [[], []];
   for (const b of run.balls) run.hands[b.hand].push(b.index);
@@ -204,12 +219,27 @@ function throwBall(run: RunState, state: SaveState, grade: ThrowGrade, rng: Rng)
   run.fatigue += run.derived.fatigueRate;
   if (grade !== 'wobble') run.fatigue = Math.max(0, run.fatigue - run.derived.breath);
 
-  // 通貨
+  // 通貨。路上ではキャッチの代わりに拍手が入る（通算キャッチは記録として数える）
   const gain = catchGain(run.pattern, state.balls);
-  state.catch += gain;
   state.totalCatches += gain;
   run.catches += gain;
   events.push({ type: 'throw', grade, k, gain });
+  if (run.prop === 'street') {
+    run.applauseAcc += gain * run.applauseRate;
+    const whole = Math.floor(run.applauseAcc);
+    if (whole > 0) {
+      run.applauseAcc -= whole;
+      run.applause += whole;
+      state.applause += whole;
+      events.push({ type: 'applause', gain: whole });
+    }
+    if (run.beats === TUNING.street.showBeats && !isClubId(run.pattern.id)) {
+      const bonus = registerShown(state, run.pattern.id);
+      if (bonus > 0) events.push({ type: 'shown', patternId: run.pattern.id, bonus });
+    }
+  } else {
+    state.catch += gain;
+  }
 
   if (grade === 'wobble') {
     run.streak = 0;

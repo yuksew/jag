@@ -15,6 +15,8 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   { id: 'run_80', test: (s) => s.bestRun >= 80 },
   { id: 'four_balls', test: (s) => s.balls >= 4 },
   { id: 'catch_2000', test: (s) => s.totalCatches >= 2000 },
+  { id: 'first_applause', test: (s) => s.applause >= 1 || s.shown.length > 0 },
+  { id: 'street_all', test: (s) => s.shown.length >= 6 },
   { id: 'complete', test: (s) => s.done },
 ];
 

@@ -46,6 +46,8 @@ describe('スキルツリー', () => {
       chase: expect.closeTo(0.36, 6) as number,
       auto: expect.closeTo(0.8, 6) as number,
       flowMs: 40,
+      applauseMult: 1,
+      showoffBonus: 10,
     });
   });
 

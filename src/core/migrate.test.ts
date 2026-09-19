@@ -52,6 +52,13 @@ describe('セーブの移行', () => {
     expect(s.applause).toBe(12);
   });
 
+  it('v3: 路上で見せたパターン（不正な id は捨てる）', () => {
+    const s = migrate({ version: 3, mode: 'street', shown: ['5', 'bogus', '441'] });
+    expect(s.mode).toBe('street');
+    expect(s.shown).toEqual(['5', '441']);
+    expect(migrate({ version: 2, mode: 'street' }).mode).toBe('street');
+  });
+
   it('壊れた値は初期値で埋める', () => {
     const s = migrate({ version: 1, catch: 'a lot', pattern: '999', tree: null });
     expect(s.catch).toBe(0);

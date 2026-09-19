@@ -2,12 +2,17 @@ import type { SaveState } from './state';
 import { TUNING } from './tuning';
 import type { CurrencyKey } from './types';
 
-export type NodeId = 'prec' | 'speed' | 'asym' | 'high' | 'read' | 'chase' | 'stam' | 'breath' | 'auto' | 'flow';
+export type NodeId = 'prec' | 'speed' | 'asym' | 'high' | 'read' | 'chase' | 'stam' | 'breath' | 'auto' | 'flow' | 'convert' | 'showoff';
 
-/** 手 / 目 / 体幹 / 記憶（表現は路上解放後に追加） */
-export type Branch = 'hand' | 'eye' | 'trunk' | 'memory';
+/** 手 / 目 / 体幹 / 記憶 / 表現（表現は路上解放後に見える） */
+export type Branch = 'hand' | 'eye' | 'trunk' | 'memory' | 'expr';
 
-export const BRANCHES: readonly Branch[] = ['hand', 'eye', 'trunk', 'memory'];
+export const BRANCHES: readonly Branch[] = ['hand', 'eye', 'trunk', 'memory', 'expr'];
+
+/** 表現の系統は路上が開くまで見えない */
+export function isBranchOpen(state: SaveState, branch: Branch): boolean {
+  return branch !== 'expr' || state.balls >= TUNING.tabs.streetBalls;
+}
 
 export interface Cost {
   currency: CurrencyKey;
@@ -40,6 +45,8 @@ export const NODES: readonly TreeNode[] = [
   { id: 'breath', branch: 'trunk', max: 3, req: { stam: 2 }, cost: (l) => ({ currency: 'clean', amount: 1 + l }) },
   { id: 'auto', branch: 'memory', max: 8, cost: geometric('catch', 80, 1.6) },
   { id: 'flow', branch: 'memory', max: 1, req: { auto: 4 }, cost: () => ({ currency: 'core', amount: 1 }) },
+  { id: 'convert', branch: 'expr', max: 5, cost: geometric('catch', 100, 1.7) },
+  { id: 'showoff', branch: 'expr', max: 3, req: { convert: 2 }, cost: (l) => ({ currency: 'clean', amount: 2 + l }) },
 ];
 
 export function node(id: NodeId): TreeNode {
@@ -86,7 +93,7 @@ export function canAfford(state: SaveState, cost: Cost): boolean {
 
 export function canBuy(state: SaveState, id: NodeId): boolean {
   const cost = nextCost(state, id);
-  return cost !== null && requirementsMet(state, id) && canAfford(state, cost);
+  return cost !== null && isBranchOpen(state, node(id).branch) && requirementsMet(state, id) && canAfford(state, cost);
 }
 
 /** 段階を 1 つ上げる。買えなければ false で何もしない */
@@ -117,6 +124,10 @@ export interface Derived {
   auto: number;
   /** 自動投げ直後の許容幅ボーナス */
   flowMs: number;
+  /** 拍手レートの倍率（表現: 変換） */
+  applauseMult: number;
+  /** 新パターンを見せたときの拍手ボーナス（表現: 見せ方） */
+  showoffBonus: number;
 }
 
 export function derived(state: SaveState): Derived {
@@ -130,5 +141,7 @@ export function derived(state: SaveState): Derived {
     chase: t.eye.chaseStep * level(state, 'chase'),
     auto: t.memory.autoStep * level(state, 'auto'),
     flowMs: level(state, 'flow') > 0 ? t.memory.flowBonusMs : 0,
+    applauseMult: 1 + t.expr.convertStep * level(state, 'convert'),
+    showoffBonus: t.street.newPatternBonus + t.expr.showoffStep * level(state, 'showoff'),
   };
 }

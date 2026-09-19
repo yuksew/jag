@@ -44,6 +44,7 @@ src/
     tuning.ts      調整用の定数を全部ここに集める
     override.ts    開発モードで tuning を外部 JSON から上書き
     club.ts        クラブ（回転数）の解放と選択
+    street.ts      路上（キャッチ→拍手の変換、見せたパターン）
     tabs.ts        タブの解放条件
     types.ts       Rng / Hand / Verdict など共有の型
     index.ts       core の公開面（他層はここから import）
@@ -70,6 +71,7 @@ docs/PROMPTS.md Claude Code への指示（マイルストーンごと）
 docs/PROTOTYPE_DIFF.md 試作と DESIGN.md の差分表
 docs/PORT_CHECK.md 試作と移植版の挙動比較手順
 docs/TUNING.md 数値調整の手順（tuning.override.json）
+docs/ART.md    画像差し替えの計画
 reference/prototype.html  単一ファイルの試作。ここから移植する
 ```
 
