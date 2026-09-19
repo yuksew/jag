@@ -320,6 +320,17 @@ function closeRun(run: RunState, state: SaveState, dropped: boolean): RunEvent[]
   return events;
 }
 
+/**
+ * ランの時刻を deltaMs だけ後ろにずらす（一時停止からの復帰用）。
+ * 拍の時刻と滞空中の球の開始時刻を同じだけ動かすので、再開後は止めた瞬間の続きになる。
+ */
+export function shiftRun(run: RunState, deltaMs: number): void {
+  if (!run.on || deltaMs <= 0) return;
+  run.t0 += deltaMs;
+  if (run.next) run.next.at += deltaMs;
+  for (const b of run.balls) if (b.flight) b.flight.t0 += deltaMs;
+}
+
 /** ランを終える（落球、または「やめる」）。記録の更新と節目の判定 */
 export function endRun(run: RunState, state: SaveState): RunEvent[] {
   if (!run.on) return [];

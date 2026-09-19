@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createRun, endRun, handleInput, startRun, tick, toleranceAt, type RunEvent } from './run';
+import { createRun, endRun, handleInput, shiftRun, startRun, tick, toleranceAt, type RunEvent } from './run';
 import { fresh } from './state';
 import { TUNING } from './tuning';
 import type { Rng } from './types';
@@ -258,5 +258,29 @@ describe('球の受け渡し', () => {
     throwClean(run, state, 1);
     const inShowcase = run.balls.map((b) => b.flight?.height ?? 0);
     expect(Math.max(...inShowcase)).toBeCloseTo(beforeShowcase * TUNING.showcase.heightFactor);
+  });
+});
+
+describe('一時停止', () => {
+  it('shiftRun で拍と滞空の時刻がまとめて後ろにずれる', () => {
+    const state = fresh();
+    const run = createRun();
+    startRun(run, state, 1000, never);
+    throwClean(run, state, 2);
+    const nextAt = run.next?.at ?? 0;
+    const flightT0 = run.balls.find((b) => b.flight)?.flight?.t0 ?? 0;
+    shiftRun(run, 5000);
+    expect(run.next?.at).toBe(nextAt + 5000);
+    expect(run.t0).toBe(6000);
+    expect(run.balls.find((b) => b.flight)?.flight?.t0).toBe(flightT0 + 5000);
+    // ずらした後も、ずらした時刻に合わせた入力は clean
+    const events = handleInput(run, state, nextAt + 5000, never);
+    expect(events[0]).toMatchObject({ type: 'throw', grade: 'clean' });
+  });
+
+  it('進行中でなければ何もしない', () => {
+    const run = createRun();
+    shiftRun(run, 1000);
+    expect(run.t0).toBe(0);
   });
 });
