@@ -184,6 +184,7 @@ function unlockAchievements(): void {
 }
 
 function onEvents(events: RunEvent[]): void {
+  arena.notify(events);
   let walletDirty = false;
   let paneDirty = false;
   for (const e of events) {
