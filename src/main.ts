@@ -2,7 +2,10 @@
 import './style.css';
 import {
   applyPrestige,
+  applyTuningOverride,
   buy,
+  isClubId,
+  selectClub,
   checkAchievements,
   createRun,
   endRun,
@@ -13,6 +16,7 @@ import {
   type PatternId,
   type RunEvent,
   type SaveState,
+  type Spins,
 } from './core';
 import { t } from './i18n';
 import { bindThrowInput } from './input';
@@ -64,6 +68,13 @@ const pane = new Pane(
     selectPattern(id: PatternId) {
       if (run.on) return;
       state.pattern = id;
+      state.mode = 'ball';
+      scheduleSave();
+      render();
+    },
+    selectClub(spins: Spins) {
+      if (run.on) return;
+      if (!selectClub(state, spins)) return;
       scheduleSave();
       render();
     },
@@ -117,7 +128,11 @@ function onEvents(events: RunEvent[]): void {
         setFlash(t.flash.early, 'bad');
         break;
       case 'clean':
-        toast.show(t.toast.clean(t.patterns[e.pattern.id].name));
+        toast.show(t.toast.clean(isClubId(e.patternId) ? t.club.runName(t.club.spins[e.spins].name) : t.patterns[e.patternId].name));
+        break;
+      case 'flash7':
+        toast.show(t.toast.flash7);
+        paneDirty = true;
         break;
       case 'showcase-cleared':
         toast.show(t.toast.showcase);
@@ -187,7 +202,23 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
 }
 
+/** 開発モード: userData/tuning.override.json で tuning.ts を上書きする */
+function applyOverride(override: unknown, announce: boolean): void {
+  if (override === null || override === undefined) return;
+  const report = applyTuningOverride(override);
+  log.info(`tuning override applied=${report.applied.join(',') || '-'} rejected=${report.rejected.join(',') || '-'}`);
+  if (announce) {
+    toast.show(t.toast.tuningApplied(report.applied.length));
+    render();
+  }
+}
+
 async function boot(): Promise<void> {
+  const api = platformApi();
+  if (api) {
+    applyOverride(await api.tuning.load(), false);
+    api.tuning.onChange((o) => applyOverride(o, true));
+  }
   let r = await store.load();
   if (r.kind === 'corrupt') {
     const restore = r.hasBackup

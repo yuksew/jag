@@ -60,6 +60,23 @@ export class Arena {
     ];
   }
 
+  private drawClub(x: number, y: number, r: number, angle: number): void {
+    const { ctx } = this;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    // 柄（下）と頭（上）。長さは球の半径の 4 倍
+    ctx.beginPath();
+    ctx.roundRect(-r * 0.25, -r * 0.4, r * 0.5, r * 2.2, r * 0.25);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(0, -r * 1.1, r * 0.55, r * 1.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
   draw(now: number, run: RunState, state: SaveState, flash: Flash | null): void {
     const { ctx, w: W, h: H } = this;
     ctx.clearRect(0, 0, W, H);
@@ -122,10 +139,17 @@ export class Arena {
       ctx.fillStyle = this.css(`--${BALL_COLORS[b.index % BALL_COLORS.length] ?? 'ivory'}`);
       ctx.strokeStyle = ink;
       ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+      if (run.prop === 'club') {
+        // クラブ: 滞空中は回転数ぶん回る。手にあるときは立てて持つ
+        const s = b.flight ? Math.min(1, (now - b.flight.t0) / b.flight.durationMs) : 0;
+        const angle = b.flight ? s * Math.PI * 2 * run.spins : 0;
+        this.drawClub(x, y, r, angle);
+      } else {
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
     }
 
     // 拍の輪

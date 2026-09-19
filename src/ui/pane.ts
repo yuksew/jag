@@ -1,7 +1,15 @@
 // 右側のタブ（練習場・身体・記録帳）。状態変更は actions 経由で core の関数を呼ぶ
 import {
+  ballEffects,
   BRANCHES,
   catchGain,
+  clubCleans,
+  clubPattern,
+  isSpinUnlocked,
+  SPINS,
+  visibleTabs,
+  type Spins,
+  type TabId,
   derived,
   isMilestoneDone,
   isPatternUnlocked,
@@ -24,11 +32,11 @@ import {
 import { t } from '../i18n';
 import { byId, esc } from './dom';
 
-export type Tab = 'practice' | 'body' | 'record';
-const TABS: readonly Tab[] = ['practice', 'body', 'record'];
+export type Tab = TabId;
 
 export interface PaneActions {
   selectPattern(id: PatternId): void;
+  selectClub(spins: Spins): void;
   buy(id: NodeId): void;
   prestige(): void;
 }
@@ -37,38 +45,78 @@ export class Pane {
   tab: Tab = 'practice';
   private readonly tabsEl = byId('tabs');
   private readonly paneEl = byId('pane');
+  private tabsKey = '';
 
   constructor(
     private readonly actions: PaneActions,
     private readonly onTabChange: (tab: Tab) => void,
-  ) {
-    this.tabsEl.innerHTML = TABS.map((id) => `<button data-tab="${id}" id="tab-${id}">${t.tabs[id]}</button>`).join('');
+  ) {}
+
+  private renderTabs(state: SaveState): void {
+    const tabs = visibleTabs(state);
+    const key = tabs.map((x) => `${x.id}:${x.open ? 1 : 0}`).join(',');
+    if (key !== this.tabsKey) {
+      this.tabsKey = key;
+      this.tabsEl.innerHTML = tabs
+        .map((x) => `<button data-tab="${x.id}" id="tab-${x.id}" class="${x.open ? '' : 'locked'}">${t.tabs[x.id]}</button>`)
+        .join('');
+      for (const b of this.tabsEl.querySelectorAll<HTMLButtonElement>('[data-tab]')) {
+        b.onclick = () => {
+          this.tab = b.dataset['tab'] as Tab;
+          this.onTabChange(this.tab);
+        };
+      }
+    }
     for (const b of this.tabsEl.querySelectorAll<HTMLButtonElement>('[data-tab]')) {
-      b.onclick = () => {
-        this.tab = b.dataset['tab'] as Tab;
-        this.onTabChange(this.tab);
-      };
+      b.classList.toggle('on', b.dataset['tab'] === this.tab);
     }
   }
 
   render(state: SaveState, run: RunState): void {
-    for (const b of this.tabsEl.querySelectorAll<HTMLButtonElement>('[data-tab]')) {
-      b.classList.toggle('on', b.dataset['tab'] === this.tab);
-    }
-    byId('tab-record').classList.toggle('locked', !state.recordOpen);
-
-    let h = '';
-    if (this.tab === 'practice') h = this.practice(state);
-    if (this.tab === 'body') h = this.body(state, run);
-    if (this.tab === 'record') h = this.record(state);
+    this.renderTabs(state);
+    const open = visibleTabs(state).find((x) => x.id === this.tab)?.open ?? false;
+    let h: string;
+    if (!open) h = `<p class="note">${esc(t.tabLocked[this.tab] ?? '')}</p>`;
+    else if (this.tab === 'practice') h = this.practice(state);
+    else if (this.tab === 'body') h = this.body(state, run);
+    else if (this.tab === 'record') h = this.record(state);
+    else if (this.tab === 'club') h = this.club(state);
+    else h = `<p class="note">${esc(t.tabLocked[this.tab] ?? '')}</p>`;
     this.paneEl.innerHTML = h;
     this.bind(run);
+  }
+
+  private club(state: SaveState): string {
+    let h = `<h2>${t.club.head}</h2><div class="pat">`;
+    for (const sp of SPINS) {
+      const on = state.mode === 'club' && state.spins === sp;
+      const un = isSpinUnlocked(state, sp);
+      const prev = sp > 1 ? t.club.spins[(sp - 1) as Spins].name : '';
+      const lockText = t.club.locked(prev, TUNING.club.unlockCleans);
+      h += `<button data-spin="${sp}" class="${on ? 'on' : ''}" ${un ? '' : 'disabled'}>`;
+      h += `<b>${esc(t.club.spins[sp].name)}</b><span>${esc(un ? t.club.spins[sp].desc : lockText)}</span></button>`;
+    }
+    h += '</div>';
+    const sp = state.mode === 'club' ? state.spins : 1;
+    const P = clubPattern(state.balls, sp);
+    const D = derived(state);
+    const eff = ballEffects(state.balls);
+    h += `<div class="note">${esc(
+      t.club.note({
+        balls: state.balls,
+        interval: D.intervalMs,
+        tol: Math.round(D.toleranceMs * P.toleranceFactor * eff.toleranceFactor),
+        gain: catchGain(P, state.balls),
+      }),
+    )}<br>${esc(t.club.note2)}</div>`;
+    h += `<div class="note">${esc(t.club.cleanCount(clubCleans(state, sp)))}</div>`;
+    return h;
   }
 
   private practice(state: SaveState): string {
     let h = `<h2>${t.practice.patternsHead}</h2><div class="pat">`;
     for (const p of patternsUpTo(state.balls)) {
-      const on = p.id === state.pattern;
+      const on = state.mode === 'ball' && p.id === state.pattern;
       const un = isPatternUnlocked(state, p.id);
       const lockText = p.unlockNode ? t.patternLocked(t.nodes[p.unlockNode].name) : '';
       h += `<button data-pat="${p.id}" class="${on ? 'on' : ''}" ${un ? '' : 'disabled'}>`;
@@ -77,16 +125,17 @@ export class Pane {
     h += '</div>';
     const P = PATTERNS[state.pattern];
     const D = derived(state);
+    const eff = ballEffects(state.balls);
     h += `<div class="note">${esc(
       t.practice.note({
         balls: P.balls,
         interval: D.intervalMs,
-        tol: Math.round(D.toleranceMs * P.toleranceFactor),
+        tol: Math.round(D.toleranceMs * P.toleranceFactor * eff.toleranceFactor),
         gain: catchGain(P, state.balls),
       }),
     )}<br>${esc(
       t.practice.note2({
-        cleanEvery: TUNING.clean.everyBeats,
+        cleanEvery: eff.cleanEvery,
         bossAt: showcaseStart(state.core),
         bossLen: TUNING.showcase.lengthBeats,
       }),
@@ -166,6 +215,12 @@ export class Pane {
       b.onclick = () => {
         if (run.on) return;
         this.actions.selectPattern(b.dataset['pat'] as PatternId);
+      };
+    }
+    for (const b of this.paneEl.querySelectorAll<HTMLButtonElement>('[data-spin]')) {
+      b.onclick = () => {
+        if (run.on) return;
+        this.actions.selectClub(Number(b.dataset['spin']) as Spins);
       };
     }
     for (const b of this.paneEl.querySelectorAll<HTMLButtonElement>('[data-buy]')) {
