@@ -59,6 +59,13 @@ describe('セーブの移行', () => {
     expect(migrate({ version: 2, mode: 'street' }).mode).toBe('street');
   });
 
+  it('v4: パッシングのクリーン', () => {
+    const s = migrate({ version: 4, mode: 'passing', passClean: { '75': 2, 'x': 1 } });
+    expect(s.mode).toBe('passing');
+    expect(s.passClean).toEqual({ '75': 2 });
+    expect(migrate({ version: 3 }).passClean).toEqual({});
+  });
+
   it('壊れた値は初期値で埋める', () => {
     const s = migrate({ version: 1, catch: 'a lot', pattern: '999', tree: null });
     expect(s.catch).toBe(0);

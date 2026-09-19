@@ -71,7 +71,8 @@ const SPIN_IDS: readonly Spins[] = [1, 2, 3];
 /** v2: v1 + クラブ（mode / spins / clubClean）、拍手、7 球フラッシュ */
 function fromV2(raw: Raw): SaveState {
   const s = fromV1(raw);
-  s.mode = raw['mode'] === 'club' ? 'club' : raw['mode'] === 'street' ? 'street' : 'ball';
+  const mode = raw['mode'];
+  s.mode = mode === 'club' || mode === 'street' || mode === 'passing' ? mode : 'ball';
   const spins = num(raw['spins'], 1);
   s.spins = SPIN_IDS.includes(spins as Spins) ? (spins as Spins) : 1;
   s.clubClean = numberMap<Spins>(raw['clubClean'], SPIN_IDS);
@@ -84,6 +85,13 @@ function fromV2(raw: Raw): SaveState {
 function fromV3(raw: Raw): SaveState {
   const s = fromV2(raw);
   s.shown = strings(raw['shown']).filter((id): id is PatternId => PATTERN_IDS.includes(id as PatternId));
+  return s;
+}
+
+/** v4: v3 + パッシングのクリーン */
+function fromV4(raw: Raw): SaveState {
+  const s = fromV3(raw);
+  s.passClean = numberMap<PatternId>(raw['passClean'], PATTERN_IDS);
   return s;
 }
 
@@ -104,6 +112,8 @@ export function migrate(raw: unknown): SaveState {
       return fromV2(raw);
     case 3:
       return fromV3(raw);
+    case 4:
+      return fromV4(raw);
     default:
       throw new MigrateError(`unknown save version ${version}`);
   }

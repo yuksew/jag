@@ -24,6 +24,11 @@ export function scheduleBeat(t0: Ms, intervalMs: number, k: number, autoProb: nu
   return { k, at: beatAt(t0, intervalMs, k), auto: rng() < autoProb, thrown: false };
 }
 
+/** パッシング: 奇数拍は相方の投げ */
+export function isPartnerBeat(k: number): boolean {
+  return k % 2 === 1;
+}
+
 /** 見せ場の開始拍 */
 export function showcaseStart(cores: number): number {
   return TUNING.showcase.baseAt + TUNING.showcase.perCore * cores;

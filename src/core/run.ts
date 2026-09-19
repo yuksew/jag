@@ -5,6 +5,7 @@ import {
   inShowcase,
   isAutoDue,
   isMissed,
+  isPartnerBeat,
   isShowcaseFinal,
   judgeInput,
   scheduleBeat,
@@ -173,6 +174,13 @@ export function startRun(run: RunState, state: SaveState, now: Ms, rng: Rng): bo
 
 function nextBeat(run: RunState, rng: Rng): void {
   run.next = scheduleBeat(run.t0, run.intervalMs, run.k, run.derived.auto, rng);
+  // パッシング: 奇数拍は相方の投げ（自動）
+  if (run.prop === 'passing' && isPartnerBeat(run.k)) run.next.auto = true;
+}
+
+/** 次の拍が相方の投げか */
+export function isPartnerNext(run: RunState): boolean {
+  return run.prop === 'passing' && run.next !== null && isPartnerBeat(run.next.k);
 }
 
 /** k 拍目の実効許容幅 */
@@ -215,9 +223,11 @@ function throwBall(run: RunState, state: SaveState, grade: ThrowGrade, rng: Rng)
   beat.thrown = true;
   run.beats = k + 1;
 
-  // 疲労: 投げごとに増え、wobble 以外なら呼吸で少し抜ける
-  run.fatigue += run.derived.fatigueRate;
-  if (grade !== 'wobble') run.fatigue = Math.max(0, run.fatigue - run.derived.breath);
+  // 疲労: 自分の投げごとに増え、wobble 以外なら呼吸で少し抜ける。相方の投げでは変わらない
+  if (grade !== 'partner') {
+    run.fatigue += run.derived.fatigueRate;
+    if (grade !== 'wobble') run.fatigue = Math.max(0, run.fatigue - run.derived.breath);
+  }
 
   // 通貨。路上ではキャッチの代わりに拍手が入る（通算キャッチは記録として数える）
   const gain = catchGain(run.pattern, state.balls);
@@ -252,6 +262,9 @@ function throwBall(run: RunState, state: SaveState, grade: ThrowGrade, rng: Rng)
       if (isClubId(id)) {
         count = (state.clubClean[run.spins] ?? 0) + 1;
         state.clubClean[run.spins] = count;
+      } else if (run.prop === 'passing') {
+        count = (state.passClean[id] ?? 0) + 1;
+        state.passClean[id] = count;
       } else {
         count = (state.patClean[id] ?? 0) + 1;
         state.patClean[id] = count;
@@ -259,6 +272,7 @@ function throwBall(run: RunState, state: SaveState, grade: ThrowGrade, rng: Rng)
       events.push({ type: 'clean', patternId: id, prop: run.prop, spins: run.spins, count });
     }
   }
+  // 流れのボーナスは自分の筋記憶にだけ付く（相方の投げでは付かない）
   run.lastAuto = grade === 'auto';
 
   if (isShowcaseFinal(k, run.showcaseAt) && !run.showcaseDone) {
@@ -330,7 +344,7 @@ export function tick(run: RunState, state: SaveState, now: Ms, rng: Rng): RunEve
   const beat = run.next;
   if (beat && !beat.thrown) {
     if (isAutoDue(now, beat)) {
-      events = throwBall(run, state, 'auto', rng);
+      events = throwBall(run, state, isPartnerNext(run) ? 'partner' : 'auto', rng);
     } else if (isMissed(now, beat, run.baseToleranceMs, toleranceAt(run, beat.k))) {
       events = endRun(run, state);
     }

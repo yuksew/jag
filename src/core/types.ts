@@ -9,8 +9,8 @@ export type CurrencyKey = 'catch' | 'clean' | 'core';
 /** 0 = 右手、1 = 左手 */
 export type Hand = 0 | 1;
 
-/** 投げの成立の仕方。auto は筋記憶による自動投げ（clean 扱い） */
-export type ThrowGrade = 'clean' | 'wobble' | 'auto';
+/** 投げの成立の仕方。auto は筋記憶による自動投げ、partner はパッシングの相方の投げ（どちらも clean 扱い） */
+export type ThrowGrade = 'clean' | 'wobble' | 'auto' | 'partner';
 
 /** 入力タイミングの判定 */
 export type Verdict = 'clean' | 'wobble' | 'drop';

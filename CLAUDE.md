@@ -45,6 +45,7 @@ src/
     override.ts    開発モードで tuning を外部 JSON から上書き
     club.ts        クラブ（回転数）の解放と選択
     street.ts      路上（キャッチ→拍手の変換、見せたパターン）
+    passing.ts     パッシング（相方の拍、パス割合）
     tabs.ts        タブの解放条件
     types.ts       Rng / Hand / Verdict など共有の型
     index.ts       core の公開面（他層はここから import）

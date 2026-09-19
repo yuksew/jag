@@ -2,10 +2,10 @@ import type { PatternId } from './patterns';
 import type { NodeId } from './tree';
 import { TUNING, type Spins } from './tuning';
 
-export const SAVE_VERSION = 3 as const;
+export const SAVE_VERSION = 4 as const;
 
-/** 練習の種類。練習場の球、クラブ、路上（拍手） */
-export type PracticeMode = 'ball' | 'club' | 'street';
+/** 練習の種類。練習場の球、クラブ、路上（拍手）、パッシング（相方） */
+export type PracticeMode = 'ball' | 'club' | 'street' | 'passing';
 
 /** セーブされる状態。ここに無いものは保存しない */
 export interface SaveState {
@@ -34,6 +34,8 @@ export interface SaveState {
   applause: number;
   /** 路上で見せたパターン */
   shown: PatternId[];
+  /** パッシングでのパターン別クリーン数（球数追加の条件には数えない） */
+  passClean: Partial<Record<PatternId, number>>;
   /** 7 球フラッシュを達成したか */
   flash7: boolean;
   /** 達成済みの節目 */
@@ -62,6 +64,7 @@ export function fresh(): SaveState {
     clubClean: {},
     applause: 0,
     shown: [],
+    passClean: {},
     flash7: false,
     milestones: [],
     achievements: [],

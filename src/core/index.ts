@@ -5,6 +5,7 @@ export type { Tuning, BallCount, Spins } from './tuning';
 export * from './override';
 export * from './club';
 export * from './street';
+export * from './passing';
 export * from './tabs';
 export * from './state';
 export * from './patterns';
