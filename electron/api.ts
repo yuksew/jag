@@ -26,6 +26,12 @@ export interface SankyuApi {
     clear(): Promise<void>;
   };
   log(level: LogLevel, message: string): void;
+  tuning: {
+    /** 開発モードなら userData/tuning.override.json の内容。無ければ null */
+    load(): Promise<unknown>;
+    /** ファイルが書き換わったら呼ばれる（開発モードのみ） */
+    onChange(cb: (override: unknown) => void): void;
+  };
 }
 
 export const API_KEY = 'sankyu' as const;
@@ -36,6 +42,8 @@ export const IPC = {
   saveRestore: 'save:restore',
   saveClear: 'save:clear',
   log: 'log',
+  tuningLoad: 'tuning:load',
+  tuningChanged: 'tuning:changed',
 } as const;
 
 /** main が preload に渡す起動引数 */

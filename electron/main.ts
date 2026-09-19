@@ -4,6 +4,7 @@ import { ARG_PACKAGED, IPC, type LogLevel } from './api';
 import { log } from './log';
 import { clearSave, readSave, restoreBackup, writeSave } from './save';
 import { initSteam } from './steam';
+import { readOverride, watchOverride } from './tuning';
 
 const isDev = !app.isPackaged;
 // userData は productName（三球）ではなく ASCII の固定名にする。
@@ -51,6 +52,8 @@ function createWindow(): BrowserWindow {
     return { action: 'deny' };
   });
 
+  watchOverride(win);
+
   if (isDev && process.env['ELECTRON_RENDERER_URL']) {
     void win.loadURL(process.env['ELECTRON_RENDERER_URL']);
   } else {
@@ -67,6 +70,7 @@ function registerIpc(): void {
   });
   ipcMain.handle(IPC.saveRestore, () => restoreBackup());
   ipcMain.handle(IPC.saveClear, () => clearSave());
+  ipcMain.handle(IPC.tuningLoad, () => readOverride());
   ipcMain.on(IPC.log, (_e, level: unknown, message: unknown) => {
     const lv: LogLevel = level === 'error' || level === 'warn' ? level : 'info';
     log(lv, String(message), 'renderer');
