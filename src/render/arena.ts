@@ -1,5 +1,5 @@
 // 練習場の Canvas 描画。core の RunState / SaveState を読むだけで書き換えない。
-import { inShowcase, TUNING, toleranceAt, type RunState, type SaveState } from '../core';
+import { inShowcase, showProgress, TUNING, toleranceAt, type RunState, type SaveState } from '../core';
 
 export type FlashTone = 'ink' | 'warn' | 'bad';
 
@@ -15,6 +15,8 @@ export interface ArenaText {
   done: string;
   dropped: string;
   idle: string;
+  /** 舞台のショーの進み具合 */
+  showProgress: (beats: number, need: number) => string;
 }
 
 /** 球の色（index 順）。CSS 変数名 */
@@ -208,15 +210,25 @@ export class Arena {
         ctx.stroke();
         ctx.setLineDash([]);
       }
-      if (inShowcase(n.k, run.showcaseAt)) {
+      // ラン中の状態表示は左上（球の頂点と重ならない位置）
+      ctx.textAlign = 'left';
+      const sx = W * 0.04;
+      const sy = H * 0.1;
+      if (run.prop === 'stage') {
+        const p = showProgress(run);
         ctx.fillStyle = amber;
         ctx.font = `700 14px ${FONT}`;
-        ctx.fillText(this.text.showcase, cx, H * 0.12);
+        ctx.fillText(this.text.showProgress(p.beats, p.need), sx, sy);
+      } else if (inShowcase(n.k, run.showcaseAt)) {
+        ctx.fillStyle = amber;
+        ctx.font = `700 14px ${FONT}`;
+        ctx.fillText(this.text.showcase, sx, sy);
       } else if (n.k >= run.showcaseAt - 8 && n.k < run.showcaseAt) {
         ctx.fillStyle = muted;
         ctx.font = `500 13px ${FONT}`;
-        ctx.fillText(this.text.showcaseIn(run.showcaseAt - n.k), cx, H * 0.12);
+        ctx.fillText(this.text.showcaseIn(run.showcaseAt - n.k), sx, sy);
       }
+      ctx.textAlign = 'center';
     } else if (!run.on) {
       ctx.fillStyle = muted;
       ctx.font = `500 14px ${FONT}`;

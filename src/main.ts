@@ -8,6 +8,7 @@ import {
   isClubId,
   selectClub,
   selectPassing,
+  selectStage,
   selectStreet,
   checkAchievements,
   createRun,
@@ -46,7 +47,7 @@ const store = createSaveStore();
 const hud = new Hud();
 const toast = new Toast(byId('toast'));
 const canvas = byId<HTMLCanvasElement>('cv');
-const arena = new Arena(canvas, t.canvas);
+const arena = new Arena(canvas, { ...t.canvas, showProgress: t.stage.progress });
 let flash: Flash | null = null;
 
 byId('title').innerHTML = `${t.title}<small>${t.subtitle}</small>`;
@@ -94,6 +95,12 @@ const pane = new Pane(
       scheduleSave();
       render();
     },
+    openShow() {
+      if (run.on) return;
+      if (!selectStage(state)) return;
+      flushSave();
+      render();
+    },
     convert() {
       const gained = convertCatches(state);
       if (gained <= 0) return;
@@ -110,10 +117,9 @@ const pane = new Pane(
     prestige() {
       if (run.on) return;
       const before = state.balls;
-      const r = applyPrestige(state);
-      if (r === 'blocked') return;
-      toast.show(r === 'done' ? t.toast.done : t.toast.prestige(state.balls));
-      if (r === 'advanced') log.info(`prestige ${before} -> ${state.balls}`);
+      if (applyPrestige(state) === 'blocked') return;
+      toast.show(t.toast.prestige(state.balls));
+      log.info(`prestige ${before} -> ${state.balls}`);
       unlockAchievements();
       flushSave();
       render();
@@ -168,6 +174,11 @@ function onEvents(events: RunEvent[]): void {
         break;
       case 'applause':
         walletDirty = true;
+        break;
+      case 'show-complete':
+        toast.show(t.toast.showComplete);
+        log.info(`show complete beats=${e.beats}`);
+        paneDirty = true;
         break;
       case 'shown':
         if (!isClubId(e.patternId)) toast.show(t.toast.shown(t.patterns[e.patternId].name, e.bonus));

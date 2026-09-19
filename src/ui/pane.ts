@@ -7,6 +7,7 @@ import {
   isBranchOpen,
   isShown,
   manualYield,
+  canOpenShow,
   passCleans,
   passingPatterns,
   passRatio,
@@ -48,6 +49,7 @@ export interface PaneActions {
   selectClub(spins: Spins): void;
   selectStreet(id: PatternId): void;
   selectPassing(id: PatternId): void;
+  openShow(): void;
   convert(): void;
   buy(id: NodeId): void;
   prestige(): void;
@@ -95,9 +97,29 @@ export class Pane {
     else if (this.tab === 'club') h = this.club(state);
     else if (this.tab === 'street') h = this.street(state, run);
     else if (this.tab === 'passing') h = this.passing(state);
+    else if (this.tab === 'stage') h = this.stage(state, run);
     else h = `<p class="note">${esc(t.tabLocked[this.tab] ?? '')}</p>`;
     this.paneEl.innerHTML = h;
     this.bind(run);
+  }
+
+  private stage(state: SaveState, run: RunState): string {
+    if (state.done) {
+      let h = `<h2>${t.stage.doneHead}</h2><p class="note">${esc(t.stage.doneBody)}</p>`;
+      const rows: [string, string | number][] = [
+        [t.stage.stats.totalCatches, state.totalCatches],
+        [t.stage.stats.runs, state.runs],
+        [t.stage.stats.best, t.record.beats(state.bestRun)],
+        [t.stage.stats.applause, state.applause],
+        [t.stage.stats.shown, state.shown.length],
+      ];
+      for (const [k, v] of rows) h += `<div class="milestone"><span>${esc(k)}</span><b>${esc(v)}</b></div>`;
+      return h;
+    }
+    let h = `<h2>${t.stage.head}</h2><p class="note">${esc(t.stage.intro(TUNING.stage.showBeats))}</p>`;
+    if (state.mode === 'stage') h += `<p class="note">${esc(t.stage.ready)}</p>`;
+    h += `<button class="btn" id="show-btn" ${canOpenShow(state) && !run.on && state.mode !== 'stage' ? '' : 'disabled'}>${esc(t.stage.open)}</button>`;
+    return h;
   }
 
   private passing(state: SaveState): string {
@@ -230,16 +252,16 @@ export class Pane {
     h += '<div class="pres">';
     if (state.done) {
       h += `<p>${esc(t.prestige.done)}</p>`;
-    } else if (pr.nextBalls !== null) {
+    } else if (pr.isFinal || pr.nextBalls === null) {
+      h += `<p>${esc(t.prestige.final)}</p>`;
+    } else {
       h += `<div class="n">${esc(t.prestige.head(pr.nextBalls))}</div>`;
-      if (pr.isFinal) h += `<p>${esc(t.prestige.protoEnd)}</p>`;
       for (const x of pr.patterns) {
         h += `<p class="${x.ok ? 'ok' : ''}">${esc(t.prestige.needClean(t.patterns[x.id].name))} ${x.ok ? t.prestige.check : ''}</p>`;
       }
       h += `<p class="${pr.coreOk ? 'ok' : ''}">${esc(t.prestige.needCore(TUNING.balls.prestigeCoreCost))} ${pr.coreOk ? t.prestige.check : ''}</p>`;
-      if (!pr.isFinal) h += `<p>${esc(t.prestige.effect)}</p>`;
-      const label = pr.isFinal ? t.buttons.finish : t.buttons.prestige(pr.nextBalls, TUNING.balls.prestigeCoreCost);
-      h += `<button class="btn" id="pres-btn" ${pr.ok && !run.on ? '' : 'disabled'}>${esc(label)}</button>`;
+      h += `<p>${esc(t.prestige.effect)}</p>`;
+      h += `<button class="btn" id="pres-btn" ${pr.ok && !run.on ? '' : 'disabled'}>${esc(t.buttons.prestige(pr.nextBalls, TUNING.balls.prestigeCoreCost))}</button>`;
     }
     h += '</div>';
     return h;
@@ -293,6 +315,8 @@ export class Pane {
         this.actions.selectPassing(b.dataset['pass'] as PatternId);
       };
     }
+    const sb = this.paneEl.querySelector<HTMLButtonElement>('#show-btn');
+    if (sb) sb.onclick = () => this.actions.openShow();
     const cb = this.paneEl.querySelector<HTMLButtonElement>('#convert-btn');
     if (cb) cb.onclick = () => this.actions.convert();
     for (const b of this.paneEl.querySelectorAll<HTMLButtonElement>('[data-buy]')) {
