@@ -50,6 +50,14 @@ export const ja = {
     convertNote: '路上で投げるより悪いレート。',
     runApplause: (n: number) => `拍手 ${n}`,
   },
+  passing: {
+    head: 'パターン',
+    note: (p: { balls: number; interval: number; tol: number; gain: number; passPct: number }) =>
+      `${p.balls}球 ／ 1拍 ${p.interval}ms ／ 許容幅 ±${p.tol}ms ／ 1拍のキャッチ ×${p.gain} ／ パス ${p.passPct}%`,
+    note2: '奇数拍は相方が投げる（入力不要、必ず成立、疲労は増えない）。偶数拍は自分の判定。奇数のサイトスワップ値が相方へのパスになる。',
+    cleanCount: (n: number) => `このパターンのパッシングのクリーン：${n}（球数追加の条件には数えない）`,
+    runName: (patternName: string) => `パッシング ${patternName}`,
+  },
   club: {
     head: '回転数',
     spins: { 1: { name: 'シングル', desc: '1回転。球と同じ感覚' }, 2: { name: 'ダブル', desc: '2回転。高く、窓が狭い' }, 3: { name: 'トリプル', desc: '3回転。さらに高く、さらに狭い' } },
@@ -115,7 +123,7 @@ export const ja = {
     r80: '1回で 80 拍',
   } as Record<string, string>,
   gain: (amount: number, currency: string) => `+${amount} ${currency}`,
-  flash: { clean: 'ぴったり', auto: '自動', wobble: 'ゆれ', drop: '落球', early: '早い' },
+  flash: { clean: 'ぴったり', auto: '自動', partner: '相方', wobble: 'ゆれ', drop: '落球', early: '早い' },
   canvas: {
     showcase: '見せ場 — 高く、狭く',
     showcaseIn: (n: number) => `あと ${n} 拍で見せ場`,

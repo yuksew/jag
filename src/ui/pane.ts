@@ -7,6 +7,9 @@ import {
   isBranchOpen,
   isShown,
   manualYield,
+  passCleans,
+  passingPatterns,
+  passRatio,
   streetPatterns,
   catchGain,
   clubCleans,
@@ -44,6 +47,7 @@ export interface PaneActions {
   selectPattern(id: PatternId): void;
   selectClub(spins: Spins): void;
   selectStreet(id: PatternId): void;
+  selectPassing(id: PatternId): void;
   convert(): void;
   buy(id: NodeId): void;
   prestige(): void;
@@ -90,9 +94,35 @@ export class Pane {
     else if (this.tab === 'record') h = this.record(state);
     else if (this.tab === 'club') h = this.club(state);
     else if (this.tab === 'street') h = this.street(state, run);
+    else if (this.tab === 'passing') h = this.passing(state);
     else h = `<p class="note">${esc(t.tabLocked[this.tab] ?? '')}</p>`;
     this.paneEl.innerHTML = h;
     this.bind(run);
+  }
+
+  private passing(state: SaveState): string {
+    const ids = passingPatterns(state);
+    let h = `<h2>${t.passing.head}</h2><div class="pat">`;
+    for (const id of ids) {
+      const on = state.mode === 'passing' && state.pattern === id;
+      h += `<button data-pass="${id}" class="${on ? 'on' : ''}"><b>${esc(t.patterns[id].name)}</b><span>${esc(t.patterns[id].desc)}</span></button>`;
+    }
+    h += '</div>';
+    const id = state.mode === 'passing' ? state.pattern : (ids[0] ?? state.pattern);
+    const P = PATTERNS[id];
+    const D = derived(state);
+    const eff = ballEffects(state.balls);
+    h += `<div class="note">${esc(
+      t.passing.note({
+        balls: state.balls,
+        interval: D.intervalMs,
+        tol: Math.round(D.toleranceMs * P.toleranceFactor * eff.toleranceFactor),
+        gain: catchGain(P, state.balls),
+        passPct: Math.round(passRatio(P.siteswap) * 100),
+      }),
+    )}<br>${esc(t.passing.note2)}</div>`;
+    h += `<div class="note">${esc(t.passing.cleanCount(passCleans(state, id)))}</div>`;
+    return h;
   }
 
   private street(state: SaveState, run: RunState): string {
@@ -255,6 +285,12 @@ export class Pane {
       b.onclick = () => {
         if (run.on) return;
         this.actions.selectStreet(b.dataset['street'] as PatternId);
+      };
+    }
+    for (const b of this.paneEl.querySelectorAll<HTMLButtonElement>('[data-pass]')) {
+      b.onclick = () => {
+        if (run.on) return;
+        this.actions.selectPassing(b.dataset['pass'] as PatternId);
       };
     }
     const cb = this.paneEl.querySelector<HTMLButtonElement>('#convert-btn');

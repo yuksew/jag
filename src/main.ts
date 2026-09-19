@@ -7,6 +7,7 @@ import {
   convertCatches,
   isClubId,
   selectClub,
+  selectPassing,
   selectStreet,
   checkAchievements,
   createRun,
@@ -87,6 +88,12 @@ const pane = new Pane(
       scheduleSave();
       render();
     },
+    selectPassing(id: PatternId) {
+      if (run.on) return;
+      if (!selectPassing(state, id)) return;
+      scheduleSave();
+      render();
+    },
     convert() {
       const gained = convertCatches(state);
       if (gained <= 0) return;
@@ -139,13 +146,21 @@ function onEvents(events: RunEvent[]): void {
     switch (e.type) {
       case 'throw':
         walletDirty = true;
-        setFlash(e.grade === 'wobble' ? t.flash.wobble : e.grade === 'auto' ? t.flash.auto : t.flash.clean, e.grade === 'wobble' ? 'warn' : 'ink');
+        setFlash(t.flash[e.grade], e.grade === 'wobble' ? 'warn' : 'ink');
         break;
       case 'early':
         setFlash(t.flash.early, 'bad');
         break;
       case 'clean':
-        toast.show(t.toast.clean(isClubId(e.patternId) ? t.club.runName(t.club.spins[e.spins].name) : t.patterns[e.patternId].name));
+        toast.show(
+          t.toast.clean(
+            isClubId(e.patternId)
+              ? t.club.runName(t.club.spins[e.spins].name)
+              : e.prop === 'passing'
+                ? t.passing.runName(t.patterns[e.patternId].name)
+                : t.patterns[e.patternId].name,
+          ),
+        );
         break;
       case 'flash7':
         toast.show(t.toast.flash7);

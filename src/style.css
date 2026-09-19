@@ -51,7 +51,7 @@ canvas{display:block;width:100%;height:auto;touch-action:manipulation}
 
 .side{background:var(--panel);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-height:420px}
 .tabs{display:flex;border-bottom:1px solid var(--line)}
-.tabs button{flex:1;background:none;border:0;padding:12px 6px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent}
+.tabs button{flex:1;background:none;border:0;padding:12px 2px;font-size:13px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
 .tabs button.on{color:var(--ink);border-bottom-color:var(--amber)}
 .tabs button.locked{color:var(--line)}
 .pane{padding:14px;overflow:auto;max-height:640px}

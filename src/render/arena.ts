@@ -18,7 +18,7 @@ export interface ArenaText {
 }
 
 /** 球の色（index 順）。CSS 変数名 */
-const BALL_COLORS = ['ivory', 'coral', 'sky', 'amber'] as const;
+const BALL_COLORS = ['ivory', 'coral', 'sky', 'amber', 'ok', 'bad', 'muted'] as const;
 const FLASH_MS = 600;
 const FONT = '"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,sans-serif';
 
@@ -53,11 +53,33 @@ export class Arena {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   }
 
-  private hands(): [{ x: number; y: number }, { x: number; y: number }] {
+  /** 手の位置。パッシングでは手 1 が相方（画面右）になる */
+  private hands(run: RunState): [{ x: number; y: number }, { x: number; y: number }] {
+    if (run.prop === 'passing') {
+      return [
+        { x: this.w * 0.3, y: this.h * 0.8 },
+        { x: this.w * 0.78, y: this.h * 0.8 },
+      ];
+    }
     return [
       { x: this.w * 0.64, y: this.h * 0.8 },
       { x: this.w * 0.36, y: this.h * 0.8 },
     ];
+  }
+
+  /** 相方の姿（頭と胴）。手は通常の手の描画を使う */
+  private drawPartner(x: number, y: number, ink: string, muted: string): void {
+    const { ctx } = this;
+    ctx.strokeStyle = muted;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x + 30, y - 70, 14, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + 30, y - 56);
+    ctx.lineTo(x + 30, y + 4);
+    ctx.stroke();
+    ctx.strokeStyle = ink;
   }
 
   private drawClub(x: number, y: number, r: number, angle: number): void {
@@ -80,7 +102,7 @@ export class Arena {
   draw(now: number, run: RunState, state: SaveState, flash: Flash | null): void {
     const { ctx, w: W, h: H } = this;
     ctx.clearRect(0, 0, W, H);
-    const hs = this.hands();
+    const hs = this.hands(run);
     const ink = this.css('--ink');
     const muted = this.css('--muted');
     const line = this.css('--line');
@@ -94,6 +116,9 @@ export class Arena {
     ctx.moveTo(W * 0.2, H * 0.86);
     ctx.lineTo(W * 0.8, H * 0.86);
     ctx.stroke();
+
+    // 相方
+    if (run.prop === 'passing') this.drawPartner(hs[1].x, hs[1].y, ink, muted);
 
     // 手
     for (const h of hs) {
@@ -153,7 +178,7 @@ export class Arena {
     }
 
     // 拍の輪
-    const cx = W / 2;
+    const cx = run.prop === 'passing' ? hs[0].x : W / 2;
     const cy = H * 0.8 + r * 0.2;
     const r0 = Math.max(18, W * 0.035);
     ctx.strokeStyle = muted;
