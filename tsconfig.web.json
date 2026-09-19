@@ -13,6 +13,6 @@
     "electron/api.ts"
   ],
   "exclude": [
-    "src/core/**/*.test.ts"
+    "src/**/*.test.ts"
   ]
 }
