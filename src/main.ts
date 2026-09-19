@@ -17,6 +17,7 @@ import {
   endRun,
   fresh,
   handleInput,
+  inShowcase,
   startRun,
   tick,
   type PatternId,
@@ -152,6 +153,7 @@ const pane = new Pane(
       if (run.on) return;
       const before = state.balls;
       if (applyPrestige(state) === 'blocked') return;
+      audio.sfx('prestige');
       toast.show(`${t.toast.prestige(state.balls)} ${t.toast.sp(TUNING.balls.spPerPrestige)}`);
       log.info(`prestige ${before} -> ${state.balls}`);
       unlockAchievements();
@@ -215,11 +217,13 @@ function onEvents(events: RunEvent[]): void {
         walletDirty = true;
         break;
       case 'show-complete':
+        audio.sfx('show-complete');
         toast.show(t.toast.showComplete);
         log.info(`show complete beats=${e.beats}`);
         paneDirty = true;
         break;
       case 'shown':
+        audio.sfx('shown');
         if (!isClubId(e.patternId)) toast.show(t.toast.shown(t.patterns[e.patternId].name, e.bonus));
         paneDirty = true;
         break;
@@ -233,6 +237,7 @@ function onEvents(events: RunEvent[]): void {
         audio.sfx('drop');
         break;
       case 'record-open':
+        audio.sfx('record-open');
         toast.show(t.toast.recordOpen);
         paneDirty = true;
         break;
@@ -245,6 +250,7 @@ function onEvents(events: RunEvent[]): void {
         break;
       }
       case 'run-end':
+        audio.setAmbience(null);
         unlockAchievements();
         syncStats(state);
         setPresence(t.presence.idle(state.balls));
@@ -269,6 +275,7 @@ function onThrow(): void {
     if (startRun(run, state, clockSource.now(), rng)) {
       hud.run(run);
       scheduledClick = -1;
+      audio.setAmbience(run.prop === 'street' || run.prop === 'stage' ? run.prop : null);
       setPresence(t.presence.running(state.balls));
     }
     return;
@@ -408,7 +415,7 @@ function frame(): void {
     // 次の拍のクリックを予約（拍ごとに 1 回）
     if (run.on && run.next && run.next.k !== scheduledClick) {
       scheduledClick = run.next.k;
-      audio.scheduleClick(run.next.at, run.next.k % 4 === 0);
+      audio.scheduleClick(run.next.at, run.next.k % 4 === 0, inShowcase(run.next.k, run.showcaseAt));
     }
   }
   if (calibration) {
