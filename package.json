@@ -19,10 +19,10 @@
     "typecheck": "tsc --noEmit -p tsconfig.core.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json",
     "lint": "eslint .",
     "compile": "electron-vite build",
-    "build": "pnpm compile && electron-builder --win --mac --linux",
-    "build:win": "pnpm compile && electron-builder --win",
-    "build:mac": "pnpm compile && electron-builder --mac",
-    "build:linux": "pnpm compile && electron-builder --linux",
+    "build": "pnpm compile && electron-builder --win --mac --linux --publish never",
+    "build:win": "pnpm compile && electron-builder --win --publish never",
+    "build:mac": "pnpm compile && electron-builder --mac --publish never",
+    "build:linux": "pnpm compile && electron-builder --linux --publish never",
     "steam:upload": "node scripts/steam/upload.mjs"
   },
   "devDependencies": {

@@ -78,12 +78,26 @@ jobs:
         shell: bash
         run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
+      - name: macOS signing secrets
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+        # 空の CSC_LINK を渡すと electron-builder がパスとして解釈して落ちるので、
+        # 秘匿変数がある場合だけ環境変数を出す。無ければ未署名の .app を作る
+        run: |
+          if [ -n "$MAC_CSC_LINK" ]; then
+            echo "CSC_LINK=$MAC_CSC_LINK" >> "$GITHUB_ENV"
+            echo "CSC_KEY_PASSWORD=$MAC_CSC_KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "署名あり"
+          else
+            echo "署名なし（MAC_CSC_LINK 未設定）"
+          fi
+
       - name: Package
         run: pnpm ${{ matrix.script }}
         env:
-          # 署名は秘匿変数がある場合だけ。無ければ自動探索も止めて未署名で通す
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: Zip (Windows)
