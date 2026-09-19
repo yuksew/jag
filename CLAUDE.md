@@ -46,6 +46,7 @@ src/
     club.ts        クラブ（回転数）の解放と選択
     street.ts      路上（キャッチ→拍手の変換、見せたパターン）
     passing.ts     パッシング（相方の拍、パス割合）
+    stage.ts       舞台（ショーの条件と成立 = 完走）
     tabs.ts        タブの解放条件
     types.ts       Rng / Hand / Verdict など共有の型
     index.ts       core の公開面（他層はここから import）
@@ -73,6 +74,7 @@ docs/PROTOTYPE_DIFF.md 試作と DESIGN.md の差分表
 docs/PORT_CHECK.md 試作と移植版の挙動比較手順
 docs/TUNING.md 数値調整の手順（tuning.override.json）
 docs/ART.md    画像差し替えの計画
+docs/DECISIONS.md 設計判断の記録（未決事項への回答）
 reference/prototype.html  単一ファイルの試作。ここから移植する
 ```
 

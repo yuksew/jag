@@ -118,6 +118,14 @@ export const TUNING = {
     /** 「表現: 見せ方」1 段階ごとの新パターンボーナス（拍手） */
     showoffStep: 10,
   },
+  stage: {
+    /** ショーで落とさずに投げ切る拍数。達成で完走 */
+    showBeats: 40,
+    /** ショー中の許容幅係数（見せ場より少し緩い） */
+    toleranceFactor: 0.8,
+    /** ショー中の高度係数 */
+    heightFactor: 1.2,
+  },
   tabs: {
     /** 記録帳が開く通算キャッチ数 */
     recordCatches: 100,

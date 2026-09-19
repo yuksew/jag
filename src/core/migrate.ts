@@ -72,7 +72,7 @@ const SPIN_IDS: readonly Spins[] = [1, 2, 3];
 function fromV2(raw: Raw): SaveState {
   const s = fromV1(raw);
   const mode = raw['mode'];
-  s.mode = mode === 'club' || mode === 'street' || mode === 'passing' ? mode : 'ball';
+  s.mode = mode === 'club' || mode === 'street' || mode === 'passing' || mode === 'stage' ? mode : 'ball';
   const spins = num(raw['spins'], 1);
   s.spins = SPIN_IDS.includes(spins as Spins) ? (spins as Spins) : 1;
   s.clubClean = numberMap<Spins>(raw['clubClean'], SPIN_IDS);

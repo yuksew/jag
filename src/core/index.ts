@@ -6,6 +6,7 @@ export * from './override';
 export * from './club';
 export * from './street';
 export * from './passing';
+export * from './stage';
 export * from './tabs';
 export * from './state';
 export * from './patterns';

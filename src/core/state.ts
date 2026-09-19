@@ -4,8 +4,8 @@ import { TUNING, type Spins } from './tuning';
 
 export const SAVE_VERSION = 4 as const;
 
-/** 練習の種類。練習場の球、クラブ、路上（拍手）、パッシング（相方） */
-export type PracticeMode = 'ball' | 'club' | 'street' | 'passing';
+/** 練習の種類。練習場の球、クラブ、路上（拍手）、パッシング（相方）、舞台（ショー） */
+export type PracticeMode = 'ball' | 'club' | 'street' | 'passing' | 'stage';
 
 /** セーブされる状態。ここに無いものは保存しない */
 export interface SaveState {

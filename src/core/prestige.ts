@@ -11,7 +11,7 @@ export interface PrestigeRequirement {
   patterns: { id: PatternId; ok: boolean }[];
   coreOk: boolean;
   ok: boolean;
-  /** 次の球数にパターンが無い = ここが試作の終点（完走） */
+  /** 上限（7 球）に達している。完走は舞台でショーを開く（stage.ts） */
   isFinal: boolean;
 }
 
@@ -20,24 +20,19 @@ export function prestigeRequirement(state: SaveState): PrestigeRequirement {
   const patterns = patternsForBalls(state.balls).map((p) => ({ id: p.id, ok: (state.patClean[p.id] ?? 0) >= 1 }));
   const coreOk = state.core >= TUNING.balls.prestigeCoreCost;
   const isFinal = nextBalls === null || patternsForBalls(nextBalls).length === 0;
-  return { nextBalls, patterns, coreOk, ok: patterns.every((x) => x.ok) && coreOk, isFinal };
+  return { nextBalls, patterns, coreOk, ok: !isFinal && patterns.every((x) => x.ok) && coreOk, isFinal };
 }
 
-export type PrestigeResult = 'advanced' | 'done' | 'blocked';
+export type PrestigeResult = 'advanced' | 'blocked';
 
 /**
- * 球数を 1 つ増やす。上限（7 球）に達した後の最終条件で完走扱い（done）。
- * 完走ではコアを消費しない（試作準拠）。ツリーはリセットしない。
- * 7 球以降の「舞台でショーを開く」は stage.ts が担う（M2 後半）。
+ * 球数を 1 つ増やす。上限は 7 球で、完走は舞台のショー（stage.ts）。
+ * ツリーはリセットしない。
  */
 export function applyPrestige(state: SaveState): PrestigeResult {
   if (state.done) return 'blocked';
   const r = prestigeRequirement(state);
-  if (!r.ok) return 'blocked';
-  if (r.isFinal || r.nextBalls === null) {
-    state.done = true;
-    return 'done';
-  }
+  if (!r.ok || r.nextBalls === null) return 'blocked';
   const first = patternsForBalls(r.nextBalls)[0];
   if (!first) return 'blocked';
   state.core -= TUNING.balls.prestigeCoreCost;

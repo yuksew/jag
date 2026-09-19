@@ -101,6 +101,7 @@ export type RunEvent =
   | { type: 'showcase-cleared' }
   | { type: 'flash7' }
   | { type: 'applause'; gain: number }
+  | { type: 'show-complete'; beats: number }
   | { type: 'shown'; patternId: PropPatternId; bonus: number }
   | { type: 'drop' }
   | { type: 'run-end'; beats: number; catches: number }
@@ -142,6 +143,7 @@ export function startRun(run: RunState, state: SaveState, now: Ms, rng: Rng): bo
   if (run.on || state.done) return false;
   const pattern = state.mode === 'club' ? clubPattern(state.balls, state.spins) : PATTERNS[state.pattern];
   const effects = ballEffects(state.balls);
+  const stage = state.mode === 'stage';
   const d = derived(state);
   run.on = true;
   run.ended = false;
@@ -155,13 +157,13 @@ export function startRun(run: RunState, state: SaveState, now: Ms, rng: Rng): bo
   run.showcaseDone = false;
   run.lastAuto = false;
   run.intervalMs = d.intervalMs;
-  run.baseToleranceMs = d.toleranceMs * pattern.toleranceFactor * effects.toleranceFactor;
+  run.baseToleranceMs = d.toleranceMs * pattern.toleranceFactor * effects.toleranceFactor * (stage ? TUNING.stage.toleranceFactor : 1);
   run.derived = d;
   run.pattern = pattern;
   run.prop = state.mode;
   run.spins = state.mode === 'club' ? state.spins : 1;
   run.cleanEvery = effects.cleanEvery;
-  run.heightFactor = effects.heightFactor * pattern.heightFactor;
+  run.heightFactor = effects.heightFactor * pattern.heightFactor * (stage ? TUNING.stage.heightFactor : 1);
   run.applause = 0;
   run.applauseAcc = 0;
   run.applauseRate = state.mode === 'street' ? applauseRate(state) : 0;
@@ -287,18 +289,25 @@ function throwBall(run: RunState, state: SaveState, grade: ThrowGrade, rng: Rng)
     events.push({ type: 'flash7' });
   }
 
+  // 舞台: 規定拍を投げ切ればショー成立 = 完走
+  if (run.prop === 'stage' && run.beats >= TUNING.stage.showBeats && !state.done) {
+    state.done = true;
+    events.push({ type: 'show-complete', beats: run.beats });
+    events.push(...closeRun(run, state, false));
+    return events;
+  }
+
   run.k++;
   nextBeat(run, rng);
   return events;
 }
 
-/** ランを終える（落球、または「やめる」）。記録の更新と節目の判定 */
-export function endRun(run: RunState, state: SaveState): RunEvent[] {
-  if (!run.on) return [];
+/** ランを閉じる共通処理。dropped が false なら「落球」イベントを出さない */
+function closeRun(run: RunState, state: SaveState, dropped: boolean): RunEvent[] {
   run.on = false;
-  run.ended = true;
+  run.ended = dropped;
   run.next = null;
-  const events: RunEvent[] = [{ type: 'drop' }];
+  const events: RunEvent[] = dropped ? [{ type: 'drop' }] : [];
   state.runs++;
   state.bestRun = Math.max(state.bestRun, run.beats);
   if (!state.recordOpen && state.totalCatches >= TUNING.tabs.recordCatches) {
@@ -308,6 +317,12 @@ export function endRun(run: RunState, state: SaveState): RunEvent[] {
   events.push({ type: 'run-end', beats: run.beats, catches: run.catches });
   for (const milestone of checkMilestones(state)) events.push({ type: 'milestone', milestone });
   return events;
+}
+
+/** ランを終える（落球、または「やめる」）。記録の更新と節目の判定 */
+export function endRun(run: RunState, state: SaveState): RunEvent[] {
+  if (!run.on) return [];
+  return closeRun(run, state, true);
 }
 
 /**

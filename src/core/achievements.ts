@@ -18,6 +18,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   { id: 'first_applause', test: (s) => s.applause >= 1 || s.shown.length > 0 },
   { id: 'street_all', test: (s) => s.shown.length >= 6 },
   { id: 'passing_clean', test: (s) => Object.values(s.passClean).some((n) => n >= 1) },
+  { id: 'flash7', test: (s) => s.flash7 },
   { id: 'complete', test: (s) => s.done },
 ];
 

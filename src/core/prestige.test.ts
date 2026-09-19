@@ -38,7 +38,7 @@ describe('球数追加', () => {
     expect(s.mode).toBe('ball');
   });
 
-  it('3 球から 7 球まで順に上がり、7 球の条件で完走（コアは消費しない）', () => {
+  it('3 球から 7 球まで順に上がる。7 球が上限で、完走は舞台に任せる', () => {
     const s = fresh();
     const chain: Record<number, string[]> = {
       3: ['3', '441', '531'],
@@ -60,9 +60,9 @@ describe('球数追加', () => {
     expect(r.patterns.map((p) => p.id)).toEqual(['7']);
     s.patClean['7'] = 1;
     s.core = 1;
-    expect(applyPrestige(s)).toBe('done');
-    expect(s.done).toBe(true);
-    expect(s.core).toBe(1);
+    expect(prestigeRequirement(s).ok).toBe(false);
     expect(applyPrestige(s)).toBe('blocked');
+    expect(s.done).toBe(false);
+    expect(s.balls).toBe(7);
   });
 });
