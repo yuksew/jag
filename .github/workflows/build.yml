@@ -78,14 +78,18 @@ jobs:
         shell: bash
         run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
-      - name: macOS signing secrets
+      - name: macOS signing and notarization secrets
         if: runner.os == 'macOS'
         shell: bash
         env:
           MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
           MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          MAC_APPLE_ID: ${{ secrets.APPLE_ID }}
+          MAC_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          MAC_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         # 空の CSC_LINK を渡すと electron-builder がパスとして解釈して落ちるので、
-        # 秘匿変数がある場合だけ環境変数を出す。無ければ未署名の .app を作る
+        # 秘匿変数がある場合だけ環境変数を出す。無ければ未署名の .app を作る。
+        # 公証（notarytool）は Apple ID / アプリ用パスワード / Team ID が揃っているときだけ
         run: |
           if [ -n "$MAC_CSC_LINK" ]; then
             echo "CSC_LINK=$MAC_CSC_LINK" >> "$GITHUB_ENV"
@@ -94,9 +98,19 @@ jobs:
           else
             echo "署名なし（MAC_CSC_LINK 未設定）"
           fi
+          if [ -n "$MAC_CSC_LINK" ] && [ -n "$MAC_APPLE_ID" ] && [ -n "$MAC_APPLE_APP_SPECIFIC_PASSWORD" ] && [ -n "$MAC_APPLE_TEAM_ID" ]; then
+            echo "APPLE_ID=$MAC_APPLE_ID" >> "$GITHUB_ENV"
+            echo "APPLE_APP_SPECIFIC_PASSWORD=$MAC_APPLE_APP_SPECIFIC_PASSWORD" >> "$GITHUB_ENV"
+            echo "APPLE_TEAM_ID=$MAC_APPLE_TEAM_ID" >> "$GITHUB_ENV"
+            echo "NOTARIZE_FLAG=-c.mac.notarize=true" >> "$GITHUB_ENV"
+            echo "公証あり"
+          else
+            echo "公証なし（APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID のいずれか未設定）"
+          fi
 
       - name: Package
-        run: pnpm ${{ matrix.script }}
+        shell: bash
+        run: pnpm ${{ matrix.script }} -- ${NOTARIZE_FLAG:-}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 

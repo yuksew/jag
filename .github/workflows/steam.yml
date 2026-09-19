@@ -1,0 +1,86 @@
+# SteamCMD で depot をアップロードする（手動実行）。
+# build.yml の成果物（Windows / macOS / Linux の zip）を指定した run から取り出し、
+# release/<version>/ に展開して scripts/steam/upload.mjs に渡す。
+#
+# 必要な Secrets:
+#   STEAM_USERNAME     — アップロード用のビルドアカウント
+#   STEAM_CONFIG_VDF   — そのアカウントでログイン済みの steamcmd の config/config.vdf を base64 にしたもの
+#                        （Steam Guard を通した状態を持ち込む。パスワードは置かない）
+name: steam upload
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'build.yml の run id（成果物の取り出し元）'
+        required: true
+      branch:
+        description: 'Steam のブランチ（dev / beta / default）'
+        required: true
+        default: 'dev'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: dist
+          merge-multiple: true
+
+      - name: Unpack into release/<version>/
+        shell: bash
+        run: |
+          v=$(node -p "require('./package.json').version")
+          mkdir -p "release/$v"
+          for z in dist/sankyu-$v-*.zip; do
+            case "$z" in
+              *windows*) d="win-unpacked" ;;
+              *macos*)   d="mac-universal" ;;
+              *linux*)   d="linux-unpacked" ;;
+              *) echo "unknown artifact $z"; exit 1 ;;
+            esac
+            mkdir -p "release/$v/$d"
+            unzip -q "$z" -d "release/$v/$d"
+          done
+          # 本番ビルドに steam_appid.txt が無いことを確認
+          if find release -name steam_appid.txt | grep -q .; then echo "steam_appid.txt が含まれている"; exit 1; fi
+          ls -R release | head -40
+
+      - name: Install SteamCMD
+        shell: bash
+        run: |
+          mkdir -p "$HOME/steamcmd" && cd "$HOME/steamcmd"
+          curl -sSL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz | tar zx
+          ./steamcmd.sh +quit || true
+          echo "STEAMCMD=$HOME/steamcmd/steamcmd.sh" >> "$GITHUB_ENV"
+
+      - name: Restore steamcmd login
+        shell: bash
+        env:
+          STEAM_CONFIG_VDF: ${{ secrets.STEAM_CONFIG_VDF }}
+        run: |
+          test -n "$STEAM_CONFIG_VDF" || { echo "STEAM_CONFIG_VDF が未設定"; exit 1; }
+          mkdir -p "$HOME/Steam/config"
+          echo "$STEAM_CONFIG_VDF" | base64 -d > "$HOME/Steam/config/config.vdf"
+
+      - name: Upload
+        shell: bash
+        env:
+          STEAM_USERNAME: ${{ secrets.STEAM_USERNAME }}
+        run: pnpm steam:upload -- --branch "${{ inputs.branch }}"
