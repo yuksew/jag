@@ -77,6 +77,26 @@ export const TUNING = {
     toleranceFactor: { 3: 1, 4: 1, 5: 0.95, 6: 0.9, 7: 0.85 } as Record<BallCount, number>,
     /** 球数ごとの高度係数（「要求高度が上がる」） */
     heightFactor: { 3: 1, 4: 1, 5: 1.1, 6: 1.2, 7: 1.3 } as Record<BallCount, number>,
+    /** 球数ごとのラン開始時の疲労。封印と体得「芯」で下がる。3・4 球は試作準拠で 0 */
+    initialFatigue: { 3: 0, 4: 0, 5: 0.1, 6: 0.2, 7: 0.3 } as Record<BallCount, number>,
+    /** 球数を上げるごとに付与する体得点 */
+    spPerPrestige: 1,
+  },
+  seal: {
+    /** 封印 1 つごとの初期疲労の軽減（封印したパターンより多い球数で効く） */
+    fatigueRelief: 0.1,
+  },
+  mastery: {
+    /** 手「型」: 許容幅の加算 */
+    formToleranceMs: 20,
+    /** 目「視野」: 追い目の加算 */
+    visionChase: 0.2,
+    /** 体幹「芯」: 初期疲労の軽減 */
+    coreFatigue: 0.1,
+    /** 記憶「無心」: 流れのボーナス倍率 */
+    zenFlowMult: 2,
+    /** 表現「華」: 拍手レート倍率 */
+    flairApplauseMult: 1.5,
   },
   club: {
     /** 回転数ごとの許容幅係数 */

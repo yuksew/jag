@@ -2,7 +2,16 @@ import type { SaveState } from './state';
 import { TUNING } from './tuning';
 import type { CurrencyKey } from './types';
 
-export type NodeId = 'prec' | 'speed' | 'asym' | 'high' | 'read' | 'chase' | 'stam' | 'breath' | 'auto' | 'flow' | 'convert' | 'showoff';
+export type NodeId =
+  | 'prec' | 'speed' | 'asym' | 'high'
+  | 'read' | 'chase'
+  | 'stam' | 'breath'
+  | 'auto' | 'flow'
+  | 'convert' | 'showoff'
+  | 'form' | 'vision' | 'core' | 'zen' | 'flair';
+
+/** 体得ノード（体得点専用。系統ごとに 1 つ） */
+export const MASTERY_NODES: readonly NodeId[] = ['form', 'vision', 'core', 'zen', 'flair'];
 
 /** 手 / 目 / 体幹 / 記憶 / 表現（表現は路上解放後に見える） */
 export type Branch = 'hand' | 'eye' | 'trunk' | 'memory' | 'expr';
@@ -47,7 +56,17 @@ export const NODES: readonly TreeNode[] = [
   { id: 'flow', branch: 'memory', max: 1, req: { auto: 4 }, cost: () => ({ currency: 'core', amount: 1 }) },
   { id: 'convert', branch: 'expr', max: 5, cost: geometric('catch', 100, 1.7) },
   { id: 'showoff', branch: 'expr', max: 3, req: { convert: 2 }, cost: (l) => ({ currency: 'clean', amount: 2 + l }) },
+  // 体得: 基本ノードを最大まで上げると開く。体得点 1
+  { id: 'form', branch: 'hand', max: 1, req: { prec: 5 }, cost: () => ({ currency: 'sp', amount: 1 }) },
+  { id: 'vision', branch: 'eye', max: 1, req: { read: 4 }, cost: () => ({ currency: 'sp', amount: 1 }) },
+  { id: 'core', branch: 'trunk', max: 1, req: { stam: 5 }, cost: () => ({ currency: 'sp', amount: 1 }) },
+  { id: 'zen', branch: 'memory', max: 1, req: { auto: 8 }, cost: () => ({ currency: 'sp', amount: 1 }) },
+  { id: 'flair', branch: 'expr', max: 1, req: { convert: 5 }, cost: () => ({ currency: 'sp', amount: 1 }) },
 ];
+
+export function isMasteryNode(id: NodeId): boolean {
+  return MASTERY_NODES.includes(id);
+}
 
 export function node(id: NodeId): TreeNode {
   const n = NODES.find((x) => x.id === id);
@@ -128,20 +147,24 @@ export interface Derived {
   applauseMult: number;
   /** 新パターンを見せたときの拍手ボーナス（表現: 見せ方） */
   showoffBonus: number;
+  /** ラン開始時の疲労の軽減（体得「芯」） */
+  initialFatigueRelief: number;
 }
 
 export function derived(state: SaveState): Derived {
   const t = TUNING;
+  const has = (id: NodeId) => level(state, id) > 0;
   return {
     intervalMs: t.beat.baseIntervalMs - t.beat.speedStepMs * level(state, 'speed'),
-    toleranceMs: t.beat.baseToleranceMs + t.beat.precisionStepMs * level(state, 'prec'),
+    toleranceMs: t.beat.baseToleranceMs + t.beat.precisionStepMs * level(state, 'prec') + (has('form') ? t.mastery.formToleranceMs : 0),
     fatigueRate: t.fatigue.perBeat * (1 - t.fatigue.staminaStep * level(state, 'stam')),
     breath: t.fatigue.breathStep * level(state, 'breath'),
     read: t.eye.readStep * level(state, 'read'),
-    chase: t.eye.chaseStep * level(state, 'chase'),
+    chase: t.eye.chaseStep * level(state, 'chase') + (has('vision') ? t.mastery.visionChase : 0),
     auto: t.memory.autoStep * level(state, 'auto'),
-    flowMs: level(state, 'flow') > 0 ? t.memory.flowBonusMs : 0,
-    applauseMult: 1 + t.expr.convertStep * level(state, 'convert'),
+    flowMs: has('flow') ? t.memory.flowBonusMs * (has('zen') ? t.mastery.zenFlowMult : 1) : 0,
+    applauseMult: (1 + t.expr.convertStep * level(state, 'convert')) * (has('flair') ? t.mastery.flairApplauseMult : 1),
     showoffBonus: t.street.newPatternBonus + t.expr.showoffStep * level(state, 'showoff'),
+    initialFatigueRelief: has('core') ? t.mastery.coreFatigue : 0,
   };
 }

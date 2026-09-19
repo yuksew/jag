@@ -4,7 +4,8 @@ export type Rng = () => number;
 /** ミリ秒。基準時計は呼び出し側が決める（試作は performance.now、本番は AudioContext.currentTime×1000） */
 export type Ms = number;
 
-export type CurrencyKey = 'catch' | 'clean' | 'core';
+/** 通貨。sp は体得点（球数を上げたときに付与、体得ノード専用） */
+export type CurrencyKey = 'catch' | 'clean' | 'core' | 'sp';
 
 /** 0 = 右手、1 = 左手 */
 export type Hand = 0 | 1;

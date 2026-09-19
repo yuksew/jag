@@ -47,6 +47,7 @@ src/
     street.ts      路上（キャッチ→拍手の変換、見せたパターン）
     passing.ts     パッシング（相方の拍、パス割合）
     stage.ts       舞台（ショーの条件と成立 = 完走）
+    seal.ts        封印（犠牲型コスト）と初期疲労
     tabs.ts        タブの解放条件
     types.ts       Rng / Hand / Verdict など共有の型
     index.ts       core の公開面（他層はここから import）

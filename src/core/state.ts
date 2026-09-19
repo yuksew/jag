@@ -2,7 +2,7 @@ import type { PatternId } from './patterns';
 import type { NodeId } from './tree';
 import { TUNING, type Spins } from './tuning';
 
-export const SAVE_VERSION = 4 as const;
+export const SAVE_VERSION = 5 as const;
 
 /** 練習の種類。練習場の球、クラブ、路上（拍手）、パッシング（相方）、舞台（ショー） */
 export type PracticeMode = 'ball' | 'club' | 'street' | 'passing' | 'stage';
@@ -14,6 +14,8 @@ export interface SaveState {
   catch: number;
   clean: number;
   core: number;
+  /** 体得点 */
+  sp: number;
   /** 記録 */
   totalCatches: number;
   bestRun: number;
@@ -38,6 +40,8 @@ export interface SaveState {
   passClean: Partial<Record<PatternId, number>>;
   /** 7 球フラッシュを達成したか */
   flash7: boolean;
+  /** 封印したパターン（記録が更新されず、選べなくなる。球数ごとに 1 つまで） */
+  sealed: PatternId[];
   /** 達成済みの節目 */
   milestones: string[];
   /** 解除済みの実績（Steam に依存しない id） */
@@ -52,6 +56,7 @@ export function fresh(): SaveState {
     catch: 0,
     clean: 0,
     core: 0,
+    sp: 0,
     totalCatches: 0,
     bestRun: 0,
     runs: 0,
@@ -66,6 +71,7 @@ export function fresh(): SaveState {
     shown: [],
     passClean: {},
     flash7: false,
+    sealed: [],
     milestones: [],
     achievements: [],
     recordOpen: false,

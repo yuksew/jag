@@ -36,6 +36,7 @@ export function applyPrestige(state: SaveState): PrestigeResult {
   const first = patternsForBalls(r.nextBalls)[0];
   if (!first) return 'blocked';
   state.core -= TUNING.balls.prestigeCoreCost;
+  state.sp += TUNING.balls.spPerPrestige;
   state.balls = r.nextBalls;
   state.pattern = first.id;
   state.mode = 'ball';

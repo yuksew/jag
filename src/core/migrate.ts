@@ -95,6 +95,14 @@ function fromV4(raw: Raw): SaveState {
   return s;
 }
 
+/** v5: v4 + 体得点、封印 */
+function fromV5(raw: Raw): SaveState {
+  const s = fromV4(raw);
+  s.sp = num(raw['sp'], 0);
+  s.sealed = strings(raw['sealed']).filter((id): id is PatternId => PATTERN_IDS.includes(id as PatternId));
+  return s;
+}
+
 /**
  * 任意の JSON 値から最新の SaveState を作る。
  * 形が壊れていれば MigrateError（呼び出し側はバックアップからの復元を提案する）。
@@ -114,6 +122,8 @@ export function migrate(raw: unknown): SaveState {
       return fromV3(raw);
     case 4:
       return fromV4(raw);
+    case 5:
+      return fromV5(raw);
     default:
       throw new MigrateError(`unknown save version ${version}`);
   }

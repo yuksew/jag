@@ -69,10 +69,11 @@ describe('パッシング: ラン', () => {
     selectPassing(s, '75');
     const run = createRun();
     startRun(run, s, 0, never);
+    const initial = run.fatigue; // 6 球の初期疲労
     play(run, s, 2);
-    expect(run.fatigue).toBeCloseTo(0.02); // 自分の 1 投ぶんだけ
+    expect(run.fatigue).toBeCloseTo(initial + 0.02); // 自分の 1 投ぶんだけ
     expect(run.lastAuto).toBe(false);
-    expect(toleranceAt(run, run.k)).toBeCloseTo(run.baseToleranceMs * (1 - 0.5 * 0.02));
+    expect(toleranceAt(run, run.k)).toBeCloseTo(run.baseToleranceMs * (1 - 0.5 * (initial + 0.02)));
   });
 
   it('クリーンはパッシングの記録に入り、球数追加の条件には数えない', () => {

@@ -104,10 +104,11 @@ export function catchGain(p: Pattern, balls: number): number {
   return Math.round(p.catchMult * (1 + TUNING.catches.perExtraBall * (balls - TUNING.balls.start)));
 }
 
-/** パターンが解放済みか。球数が足りていて、必要ならノードを 1 段階以上持っている */
+/** パターンが解放済みか。球数が足りていて、必要ならノードを 1 段階以上持ち、封印されていない */
 export function isPatternUnlocked(state: SaveState, id: PatternId): boolean {
   const p = PATTERNS[id];
   if (p.balls > state.balls) return false;
+  if (state.sealed.includes(id)) return false;
   return p.unlockNode === undefined || level(state, p.unlockNode) > 0;
 }
 

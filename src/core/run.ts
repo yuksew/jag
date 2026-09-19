@@ -27,6 +27,7 @@ import {
   type PropPatternId,
 } from './patterns';
 import type { PracticeMode, SaveState } from './state';
+import { initialFatigue } from './seal';
 import { applauseRate, registerShown } from './street';
 import { derived, type Derived } from './tree';
 import { TUNING, type Spins } from './tuning';
@@ -149,7 +150,7 @@ export function startRun(run: RunState, state: SaveState, now: Ms, rng: Rng): bo
   run.ended = false;
   run.t0 = now;
   run.k = 0;
-  run.fatigue = 0;
+  run.fatigue = initialFatigue(state);
   run.streak = 0;
   run.beats = 0;
   run.catches = 0;

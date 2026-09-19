@@ -48,6 +48,7 @@ describe('スキルツリー', () => {
       flowMs: 40,
       applauseMult: 1,
       showoffBonus: 10,
+      initialFatigueRelief: 0,
     });
   });
 

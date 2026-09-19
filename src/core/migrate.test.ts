@@ -66,6 +66,15 @@ describe('セーブの移行', () => {
     expect(migrate({ version: 3 }).passClean).toEqual({});
   });
 
+  it('v5: 体得点と封印', () => {
+    const s = migrate({ version: 5, sp: 2, sealed: ['3', 'nope'] });
+    expect(s.sp).toBe(2);
+    expect(s.sealed).toEqual(['3']);
+    const old = migrate({ version: 4 });
+    expect(old.sp).toBe(0);
+    expect(old.sealed).toEqual([]);
+  });
+
   it('壊れた値は初期値で埋める', () => {
     const s = migrate({ version: 1, catch: 'a lot', pattern: '999', tree: null });
     expect(s.catch).toBe(0);

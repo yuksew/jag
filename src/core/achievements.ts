@@ -19,6 +19,8 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   { id: 'street_all', test: (s) => s.shown.length >= 6 },
   { id: 'passing_clean', test: (s) => Object.values(s.passClean).some((n) => n >= 1) },
   { id: 'flash7', test: (s) => s.flash7 },
+  { id: 'sealed', test: (s) => s.sealed.length >= 1 },
+  { id: 'mastery', test: (s) => ['form', 'vision', 'core', 'zen', 'flair'].some((id) => (s.tree[id as 'form'] ?? 0) > 0) },
   { id: 'complete', test: (s) => s.done },
 ];
 
