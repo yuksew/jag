@@ -29,6 +29,12 @@ const api: SankyuApi = {
       });
     },
   },
+  steam: {
+    info: () => ipcRenderer.invoke(IPC.steamInfo) as Promise<{ available: boolean; appId: number; onDeck: boolean }>,
+    achievements: (ids) => ipcRenderer.send(IPC.steamAchievements, ids),
+    stats: (stats) => ipcRenderer.send(IPC.steamStats, stats),
+    presence: (status) => ipcRenderer.send(IPC.steamPresence, status),
+  },
   tuning: {
     load: () => ipcRenderer.invoke(IPC.tuningLoad) as Promise<unknown>,
     onChange: (cb) => {

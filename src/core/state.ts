@@ -2,7 +2,7 @@ import type { PatternId } from './patterns';
 import type { NodeId } from './tree';
 import { TUNING, type Spins } from './tuning';
 
-export const SAVE_VERSION = 5 as const;
+export const SAVE_VERSION = 6 as const;
 
 /** 練習の種類。練習場の球、クラブ、路上（拍手）、パッシング（相方）、舞台（ショー） */
 export type PracticeMode = 'ball' | 'club' | 'street' | 'passing' | 'stage';
@@ -20,6 +20,10 @@ export interface SaveState {
   totalCatches: number;
   bestRun: number;
   runs: number;
+  /** ランで遊んだ時間の合計（ms。拍数 × 間隔で数える） */
+  playMs: number;
+  /** 完走した時点の playMs。未完走なら 0 */
+  completeMs: number;
   /** スキルツリーの段階 */
   tree: Partial<Record<NodeId, number>>;
   balls: number;
@@ -60,6 +64,8 @@ export function fresh(): SaveState {
     totalCatches: 0,
     bestRun: 0,
     runs: 0,
+    playMs: 0,
+    completeMs: 0,
     tree: {},
     balls: TUNING.balls.start,
     pattern: '3',

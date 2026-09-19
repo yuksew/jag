@@ -45,5 +45,8 @@
       "esbuild",
       "@swc/core"
     ]
+  },
+  "dependencies": {
+    "steamworks.js": "^0.4.0"
   }
 }

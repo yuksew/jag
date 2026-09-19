@@ -1,4 +1,4 @@
-import { defineConfig } from 'electron-vite';
+import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -10,6 +10,8 @@ const define = { __APP_VERSION__: JSON.stringify(pkg.version) };
 export default defineConfig({
   main: {
     define,
+    // steamworks.js はネイティブモジュールなので束ねない
+    plugins: [externalizeDepsPlugin()],
     build: {
       outDir: 'out/main',
       lib: { entry: resolve(__dirname, 'electron/main.ts') },
@@ -18,6 +20,7 @@ export default defineConfig({
   },
   preload: {
     define,
+    plugins: [externalizeDepsPlugin()],
     build: {
       outDir: 'out/preload',
       lib: { entry: resolve(__dirname, 'electron/preload.ts') },

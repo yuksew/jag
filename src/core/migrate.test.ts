@@ -75,6 +75,11 @@ describe('セーブの移行', () => {
     expect(old.sealed).toEqual([]);
   });
 
+  it('v6: 遊んだ時間', () => {
+    expect(migrate({ version: 6, playMs: 1234, completeMs: 1000 })).toMatchObject({ playMs: 1234, completeMs: 1000 });
+    expect(migrate({ version: 5 })).toMatchObject({ playMs: 0, completeMs: 0 });
+  });
+
   it('壊れた値は初期値で埋める', () => {
     const s = migrate({ version: 1, catch: 'a lot', pattern: '999', tree: null });
     expect(s.catch).toBe(0);

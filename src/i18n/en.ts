@@ -166,6 +166,11 @@ export const en: Strings = {
     tuningApplied: (n) => `Applied tuning.override.json (${n})`,
   },
   confirmReset: 'Erase all records?',
+  presence: {
+    idle: (balls) => `${balls} balls, practicing`,
+    running: (balls) => `${balls} balls, juggling`,
+    showcase: (balls) => `${balls} balls, showcase`,
+  },
   settings: {
     open: 'Settings',
     close: 'Close',

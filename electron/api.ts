@@ -75,6 +75,13 @@ export interface SankyuApi {
     /** 終了前に main から「保存してから閉じる」を求められたときの応答を登録する */
     onFlushRequest(cb: () => Promise<void>): void;
   };
+  steam: {
+    info(): Promise<{ available: boolean; appId: number; onDeck: boolean }>;
+    /** 解除済みの実績 id（core の id）をまとめて送る。未同期分の再送も同じ */
+    achievements(ids: string[]): void;
+    stats(stats: { totalCatches: number; bestRun: number; completeMs: number }): void;
+    presence(status: string | null): void;
+  };
   tuning: {
     /** 開発モードなら userData/tuning.override.json の内容。無ければ null */
     load(): Promise<unknown>;
@@ -98,6 +105,10 @@ export const IPC = {
   settingsWrite: 'settings:write',
   windowFullscreen: 'window:fullscreen',
   windowZoom: 'window:zoom',
+  steamInfo: 'steam:info',
+  steamAchievements: 'steam:achievements',
+  steamStats: 'steam:stats',
+  steamPresence: 'steam:presence',
   flushRequest: 'app:flush-request',
   flushDone: 'app:flush-done',
 } as const;

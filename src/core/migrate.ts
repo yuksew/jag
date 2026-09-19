@@ -103,6 +103,14 @@ function fromV5(raw: Raw): SaveState {
   return s;
 }
 
+/** v6: v5 + 遊んだ時間 */
+function fromV6(raw: Raw): SaveState {
+  const s = fromV5(raw);
+  s.playMs = num(raw['playMs'], 0);
+  s.completeMs = num(raw['completeMs'], 0);
+  return s;
+}
+
 /**
  * 任意の JSON 値から最新の SaveState を作る。
  * 形が壊れていれば MigrateError（呼び出し側はバックアップからの復元を提案する）。
@@ -124,6 +132,8 @@ export function migrate(raw: unknown): SaveState {
       return fromV4(raw);
     case 5:
       return fromV5(raw);
+    case 6:
+      return fromV6(raw);
     default:
       throw new MigrateError(`unknown save version ${version}`);
   }

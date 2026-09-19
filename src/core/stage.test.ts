@@ -65,6 +65,8 @@ describe('舞台: ショー', () => {
     expect(types.at(-1) === 'run-end' || types.at(-1) === 'milestone').toBe(true);
     expect(s.runs).toBe(1);
     expect(s.applause).toBe(1000); // 拍手は減らない
+    expect(s.playMs).toBe(TUNING.stage.showBeats * run.intervalMs);
+    expect(s.completeMs).toBe(s.playMs);
   });
 
   it('途中で落とせば完走にならず、やり直せる', () => {

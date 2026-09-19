@@ -311,6 +311,8 @@ function closeRun(run: RunState, state: SaveState, dropped: boolean): RunEvent[]
   const events: RunEvent[] = dropped ? [{ type: 'drop' }] : [];
   state.runs++;
   state.bestRun = Math.max(state.bestRun, run.beats);
+  state.playMs += run.beats * run.intervalMs;
+  if (state.done && state.completeMs === 0) state.completeMs = state.playMs;
   if (!state.recordOpen && state.totalCatches >= TUNING.tabs.recordCatches) {
     state.recordOpen = true;
     events.push({ type: 'record-open' });

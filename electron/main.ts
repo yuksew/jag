@@ -91,6 +91,20 @@ function registerIpc(): void {
   ipcMain.handle(IPC.saveRestore, () => restoreBackup());
   ipcMain.handle(IPC.saveClear, () => clearSave());
   ipcMain.handle(IPC.tuningLoad, () => readOverride());
+  ipcMain.handle(IPC.steamInfo, () => ({ available: steam.available, appId: steam.appId, onDeck: steam.onDeck }));
+  ipcMain.on(IPC.steamAchievements, (_e, ids: unknown) => {
+    if (!Array.isArray(ids)) return;
+    for (const id of ids) if (typeof id === 'string') steam.activateAchievement(id);
+  });
+  ipcMain.on(IPC.steamStats, (_e, stats: unknown) => {
+    if (typeof stats !== 'object' || stats === null) return;
+    const s = stats as Record<string, unknown>;
+    const n = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+    steam.setStats({ totalCatches: n(s['totalCatches']), bestRun: n(s['bestRun']), completeMs: n(s['completeMs']) });
+  });
+  ipcMain.on(IPC.steamPresence, (_e, status: unknown) => {
+    steam.setRichPresence(typeof status === 'string' ? status : null);
+  });
   ipcMain.handle(IPC.settingsRead, () => readSettings());
   ipcMain.on(IPC.settingsReadSync, (e) => {
     e.returnValue = cachedSettings;
@@ -117,6 +131,8 @@ process.on('uncaughtException', (e) => log('error', `uncaughtException: ${e.stac
 process.on('unhandledRejection', (e) => log('error', `unhandledRejection: ${String(e)}`));
 
 const steam = initSteam(STEAM_APP_ID);
+// Steam オーバーレイはコマンドラインスイッチを足すので app ready より前に呼ぶ（docs/STEAM.md）
+steam.enableOverlay();
 
 void app.whenReady().then(async () => {
   registerIpc();
@@ -134,8 +150,6 @@ void app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 
-  // Steam オーバーレイは main の最後に有効化する（docs/STEAM.md）
-  steam.enableOverlay();
 });
 
 app.on('window-all-closed', () => {

@@ -10,9 +10,14 @@ files:
   - out/**
   - package.json
   - "!**/*.map"
+  - "!steam_appid.txt"
+# steamworks.js はネイティブモジュール + steam_api ライブラリを dist/ に持つので asar の外に出す
 asarUnpack:
   - "**/*.node"
-extraResources: []
+  - "node_modules/steamworks.js/**"
+extraResources:
+  - from: THIRD_PARTY_NOTICES.md
+    to: THIRD_PARTY_NOTICES.md
 win:
   target:
     - target: dir

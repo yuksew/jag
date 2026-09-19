@@ -35,6 +35,7 @@ import { GamepadInput } from './input/gamepad';
 import { createSaveStore } from './platform/save';
 import { applyDisplay, loadSettingsSync, saveSettings } from './platform/settings';
 import { installErrorLogging, log } from './platform/log';
+import { setPresence, syncAchievements, syncStats } from './platform/steam';
 import { platformApi } from './platform/api';
 import { Arena, type Flash } from './render/arena';
 import { askDialog } from './ui/dialog';
@@ -175,7 +176,9 @@ function setFlash(text: string, tone: Flash['tone']): void {
 }
 
 function unlockAchievements(): void {
-  for (const id of checkAchievements(state)) log.info(`achievement ${id}`);
+  const unlocked = checkAchievements(state);
+  for (const id of unlocked) log.info(`achievement ${id}`);
+  if (unlocked.length) syncAchievements(state);
 }
 
 function onEvents(events: RunEvent[]): void {
@@ -223,6 +226,7 @@ function onEvents(events: RunEvent[]): void {
       case 'showcase-cleared':
         toast.show(t.toast.showcase);
         audio.sfx('showcase');
+        setPresence(t.presence.showcase(state.balls));
         break;
       case 'drop':
         setFlash(t.flash.drop, 'bad');
@@ -242,6 +246,8 @@ function onEvents(events: RunEvent[]): void {
       }
       case 'run-end':
         unlockAchievements();
+        syncStats(state);
+        setPresence(t.presence.idle(state.balls));
         paneDirty = true;
         flushSave();
         break;
@@ -263,6 +269,7 @@ function onThrow(): void {
     if (startRun(run, state, clockSource.now(), rng)) {
       hud.run(run);
       scheduledClick = -1;
+      setPresence(t.presence.running(state.balls));
     }
     return;
   }
@@ -446,6 +453,10 @@ async function boot(): Promise<void> {
   if (r.kind === 'ok') state = r.state;
   else if (r.kind === 'corrupt') log.warn('save is unreadable; starting fresh');
   log.info(`boot v${platformApi()?.version ?? 'browser'} balls=${state.balls}`);
+  // 起動時に未同期分を再送する（Steam が落ちていた間の解除など）
+  syncAchievements(state);
+  syncStats(state);
+  setPresence(t.presence.idle(state.balls));
   render();
   arena.fit();
   await applyDisplay(settings);

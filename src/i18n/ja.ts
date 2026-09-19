@@ -170,6 +170,11 @@ export const ja = {
     tuningApplied: (n: number) => `tuning.override.json を反映（${n} 件）`,
   },
   confirmReset: '記録を全部消す？',
+  presence: {
+    idle: (balls: number) => `${balls}球 練習中`,
+    running: (balls: number) => `${balls}球 投げている`,
+    showcase: (balls: number) => `${balls}球 見せ場`,
+  },
   settings: {
     open: '設定',
     close: '閉じる',
