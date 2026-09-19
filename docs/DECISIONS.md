@@ -56,6 +56,22 @@
 
 - `tuning.ts` は開発モードで `userData/tuning.override.json` から上書きできる。`docs/TUNING.md`
 
+## M3
+
+- 拍の基準時刻は AudioContext.currentTime（ms 換算）。動かせない環境では performance.now() に落ちる。同じランの中で基準を混ぜない
+- 入力オフセット補正は「クリックに合わせて 8 回叩く（最初の 2 拍は聞くだけ）→ 平均遅延」。入力時刻から引いて core に渡す
+- 設定はセーブと別ファイル（settings.json）。言語切替は再読み込み（ラン中は不可）
+- 最小化・非表示でランを一時停止し、復帰時に拍と滞空の時刻をずらす（shiftRun）
+- ウィンドウを閉じる前に main が renderer にセーブを書かせる。応答が無くても 1.5 秒で閉じる
+
+## M4
+
+- steamworks.js は main プロセスの `electron/steam.ts` にだけ置く。require / init の失敗はすべて no-op
+- 実績の対応表（core id → Steam API 名）は `electron/steam.ts`。App ID 480 のときは Spacewar の実績名に寄せる
+- オーバーレイは `in-process-gpu` のみ（`disable-direct-composition` は付けない）。app ready より前にスイッチを足す
+- 開発時は cwd に `steam_appid.txt` を書く。本番は `files` で除外し、steam.yml でも検査する
+- 統計は total_catches / best_run / complete_ms。遊んだ時間は「拍数 × 間隔」で数える（state.playMs）
+
 ## 未決のまま
 
 - 落球の回収（入力にどう落とすか）

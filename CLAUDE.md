@@ -66,6 +66,7 @@ src/
     calibrate.ts   拍に合わせて 8 回叩き、平均遅延を出す純粋ロジック（テストあり）
   i18n/        ja / en の文言。起動時に設定から選ぶ。切替は再読み込み
   platform/    Electron 依存（セーブファイル、設定、ウィンドウ、Steam ブリッジの renderer 側）
+    steam.ts       実績・統計・Rich Presence を main に送る
   main.ts
 electron/
   main.ts      main プロセス。Steam init、ウィンドウ、オーバーレイ有効化、セーブ IO
@@ -74,9 +75,11 @@ electron/
   save.ts      セーブファイルの IO（一時ファイル→rename、.bak を 1 世代）
   settings.ts  設定ファイル（userData/settings.json）の IO
   log.ts       userData/logs への追記ログ。7 日で削除
-  steam.ts     steamworks.js の薄いラッパ。Steam 不在（Steam 外起動・開発時）でも落ちない
+  steam.ts     steamworks.js の薄いラッパ。Steam 不在（Steam 外起動・開発時）でも落ちない。core の実績 id → Steam API 名の対応表
   tuning.ts    開発モードで userData/tuning.override.json を読み、変更を renderer に流す
 scripts/steam/ SteamCMD 用の app_build / depot_build vdf と upload スクリプト
+.github/workflows/build.yml  main / タグで 3 OS ビルド（macOS は Secrets があれば署名・公証）
+.github/workflows/steam.yml  手動実行で SteamCMD アップロード
 tests/smoke.mjs Playwright による起動スモーク（`pnpm smoke`）
 docs/DESIGN.md 設計書
 docs/STEAM.md  Steam リリース要件とチェックリスト
@@ -86,6 +89,7 @@ docs/PORT_CHECK.md 試作と移植版の挙動比較手順
 docs/TUNING.md 数値調整の手順（tuning.override.json）
 docs/ART.md    画像差し替えの計画
 docs/DECISIONS.md 設計判断の記録（未決事項への回答）
+docs/RELEASE_CHECK.md リリース前チェックリストの確認結果
 reference/prototype.html  単一ファイルの試作。ここから移植する
 ```
 
