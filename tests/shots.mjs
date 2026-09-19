@@ -12,11 +12,11 @@ async function session(save, fn, opts = {}) {
   // Playwright のキー入力の遅延（約 40ms）をオフセット補正で吸収する。許容幅は実際の値のまま
   const settings = opts.settings ?? { version: 1, display: { fullscreen: false, scale: 100, reduceMotion: false }, sound: { master: 0.8, sfx: 0.8, click: true }, input: { offsetMs: 40, throwKeys: ['Space', 'Enter'] }, lang: 'ja' };
   writeFileSync(join(ud, 'settings.json'), JSON.stringify(settings));
-  const args = ['--no-sandbox'];
-  if (opts.dark) args.push('--force-dark-mode');
-  args.push('/home/user/jag');
+  const args = ['--no-sandbox', '/home/user/jag'];
   const app = await electron.launch({ args, cwd: '/home/user/jag', env: { ...process.env, SANKYU_USERDATA: ud } });
   const win = await app.firstWindow();
+  // --force-dark-mode では prefers-color-scheme が変わらないので、Playwright のメディア指定で切り替える
+  if (opts.dark) await win.emulateMedia({ colorScheme: 'dark' });
   await win.waitForSelector('#start-btn'); await win.waitForTimeout(500);
   try { await fn(win); } finally { await app.close(); }
 }
