@@ -26,8 +26,9 @@ export function prestigeRequirement(state: SaveState): PrestigeRequirement {
 export type PrestigeResult = 'advanced' | 'done' | 'blocked';
 
 /**
- * 球数を 1 つ増やす。次の球数にパターンが無ければ完走扱い（done）。
+ * 球数を 1 つ増やす。上限（7 球）に達した後の最終条件で完走扱い（done）。
  * 完走ではコアを消費しない（試作準拠）。ツリーはリセットしない。
+ * 7 球以降の「舞台でショーを開く」は stage.ts が担う（M2 後半）。
  */
 export function applyPrestige(state: SaveState): PrestigeResult {
   if (state.done) return 'blocked';
@@ -42,5 +43,6 @@ export function applyPrestige(state: SaveState): PrestigeResult {
   state.core -= TUNING.balls.prestigeCoreCost;
   state.balls = r.nextBalls;
   state.pattern = first.id;
+  state.mode = 'ball';
   return 'advanced';
 }

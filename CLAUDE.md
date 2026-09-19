@@ -42,6 +42,9 @@ src/
     achievements.ts 実績の定義と発火条件（Steam に依存しない）
     migrate.ts     セーブのバージョン移行
     tuning.ts      調整用の定数を全部ここに集める
+    override.ts    開発モードで tuning を外部 JSON から上書き
+    club.ts        クラブ（回転数）の解放と選択
+    tabs.ts        タブの解放条件
     types.ts       Rng / Hand / Verdict など共有の型
     index.ts       core の公開面（他層はここから import）
   render/      Canvas 描画。core の状態を読むだけで書き換えない
@@ -58,6 +61,7 @@ electron/
   save.ts      セーブファイルの IO（一時ファイル→rename、.bak を 1 世代）
   log.ts       userData/logs への追記ログ
   steam.ts     steamworks.js の薄いラッパ。Steam 不在（Steam 外起動・開発時）でも落ちない
+  tuning.ts    開発モードで userData/tuning.override.json を読み、変更を renderer に流す
 scripts/steam/ SteamCMD 用の app_build / depot_build vdf と upload スクリプト
 tests/smoke.mjs Playwright による起動スモーク（`pnpm smoke`）
 docs/DESIGN.md 設計書
@@ -65,6 +69,7 @@ docs/STEAM.md  Steam リリース要件とチェックリスト
 docs/PROMPTS.md Claude Code への指示（マイルストーンごと）
 docs/PROTOTYPE_DIFF.md 試作と DESIGN.md の差分表
 docs/PORT_CHECK.md 試作と移植版の挙動比較手順
+docs/TUNING.md 数値調整の手順（tuning.override.json）
 reference/prototype.html  単一ファイルの試作。ここから移植する
 ```
 

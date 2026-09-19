@@ -34,6 +34,24 @@ describe('セーブの移行', () => {
     expect(migrate(JSON.parse(JSON.stringify(s)))).toEqual(s);
   });
 
+  it('v1 → v2: クラブ・拍手・フラッシュの既定値が入る', () => {
+    const s = migrate({ version: 1, catch: 5, balls: 4, pattern: '53' });
+    expect(s.version).toBe(SAVE_VERSION);
+    expect(s.mode).toBe('ball');
+    expect(s.spins).toBe(1);
+    expect(s.clubClean).toEqual({});
+    expect(s.applause).toBe(0);
+    expect(s.flash7).toBe(false);
+  });
+
+  it('v2 のクラブの記録を読む', () => {
+    const s = migrate({ version: 2, mode: 'club', spins: 2, clubClean: { '1': 3, '2': 1, '9': 4 }, applause: 12 });
+    expect(s.mode).toBe('club');
+    expect(s.spins).toBe(2);
+    expect(s.clubClean).toEqual({ 1: 3, 2: 1 });
+    expect(s.applause).toBe(12);
+  });
+
   it('壊れた値は初期値で埋める', () => {
     const s = migrate({ version: 1, catch: 'a lot', pattern: '999', tree: null });
     expect(s.catch).toBe(0);

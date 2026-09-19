@@ -56,6 +56,6 @@ describe('スキルツリー', () => {
     expect(unlockedPatterns(s)).toEqual(['3', '441']);
     s.tree.high = 1;
     s.balls = 4;
-    expect(unlockedPatterns(s)).toEqual(['3', '441', '531', '4', '53']);
+    expect(unlockedPatterns(s)).toEqual(['3', '441', '531', '4', '53', '552']);
   });
 });

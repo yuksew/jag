@@ -12,10 +12,22 @@ import {
   type Beat,
 } from './beat';
 import { checkMilestones, type Milestone } from './milestones';
-import { catchGain, initialHands, landingHand, PATTERNS, throwingHand, throwValue, type Pattern } from './patterns';
-import type { SaveState } from './state';
+import {
+  ballEffects,
+  catchGain,
+  clubPattern,
+  initialHands,
+  isClubId,
+  landingHand,
+  PATTERNS,
+  throwingHand,
+  throwValue,
+  type Pattern,
+  type PropPatternId,
+} from './patterns';
+import type { PracticeMode, SaveState } from './state';
 import { derived, type Derived } from './tree';
-import { TUNING } from './tuning';
+import { TUNING, type Spins } from './tuning';
 import type { Hand, Ms, Rng, ThrowGrade } from './types';
 
 export interface Flight {
@@ -61,6 +73,14 @@ export interface RunState {
   baseToleranceMs: number;
   derived: Derived;
   pattern: Pattern;
+  /** 球かクラブか */
+  prop: PracticeMode;
+  /** クラブの回転数（球のときは 1） */
+  spins: Spins;
+  /** このランのクリーン間隔（球数で変わる） */
+  cleanEvery: number;
+  /** 球数による高度係数 */
+  heightFactor: number;
   balls: Ball[];
   /** 各手が持つ球の index。先頭から投げる */
   hands: [number[], number[]];
@@ -69,8 +89,9 @@ export interface RunState {
 export type RunEvent =
   | { type: 'throw'; grade: ThrowGrade; k: number; gain: number }
   | { type: 'early' }
-  | { type: 'clean'; pattern: Pattern; count: number }
+  | { type: 'clean'; patternId: PropPatternId; prop: PracticeMode; spins: Spins; count: number }
   | { type: 'showcase-cleared' }
+  | { type: 'flash7' }
   | { type: 'drop' }
   | { type: 'run-end'; beats: number; catches: number }
   | { type: 'record-open' }
@@ -94,6 +115,10 @@ export function createRun(): RunState {
     baseToleranceMs: TUNING.beat.baseToleranceMs,
     derived: derived({ tree: {} } as SaveState),
     pattern: PATTERNS['3'],
+    prop: 'ball',
+    spins: 1,
+    cleanEvery: TUNING.clean.everyBeats[3],
+    heightFactor: 1,
     balls: [],
     hands: [[], []],
   };
@@ -102,7 +127,8 @@ export function createRun(): RunState {
 /** ランを開始する。既に進行中か完走済みなら false */
 export function startRun(run: RunState, state: SaveState, now: Ms, rng: Rng): boolean {
   if (run.on || state.done) return false;
-  const pattern = PATTERNS[state.pattern];
+  const pattern = state.mode === 'club' ? clubPattern(state.balls, state.spins) : PATTERNS[state.pattern];
+  const effects = ballEffects(state.balls);
   const d = derived(state);
   run.on = true;
   run.ended = false;
@@ -116,9 +142,13 @@ export function startRun(run: RunState, state: SaveState, now: Ms, rng: Rng): bo
   run.showcaseDone = false;
   run.lastAuto = false;
   run.intervalMs = d.intervalMs;
-  run.baseToleranceMs = d.toleranceMs * pattern.toleranceFactor;
+  run.baseToleranceMs = d.toleranceMs * pattern.toleranceFactor * effects.toleranceFactor;
   run.derived = d;
   run.pattern = pattern;
+  run.prop = state.mode;
+  run.spins = state.mode === 'club' ? state.spins : 1;
+  run.cleanEvery = effects.cleanEvery;
+  run.heightFactor = effects.heightFactor * pattern.heightFactor;
   run.balls = initialHands(pattern.balls).map((hand, index) => ({ index, hand, flight: null }));
   run.hands = [[], []];
   for (const b of run.balls) run.hands[b.hand].push(b.index);
@@ -155,7 +185,7 @@ function throwBall(run: RunState, state: SaveState, grade: ThrowGrade, rng: Rng)
   if (ball) {
     const dwell = run.intervalMs * TUNING.flight.dwellFactor;
     const durationMs = Math.max(value * run.intervalMs - dwell, run.intervalMs * TUNING.flight.minDurationFactor);
-    let height = Math.pow(value / TUNING.balls.start, TUNING.flight.heightExponent);
+    let height = Math.pow(value / TUNING.balls.start, TUNING.flight.heightExponent) * run.heightFactor;
     if (inShowcase(k, run.showcaseAt)) height *= TUNING.showcase.heightFactor;
     ball.flight = {
       from: hand,
@@ -185,11 +215,18 @@ function throwBall(run: RunState, state: SaveState, grade: ThrowGrade, rng: Rng)
     run.streak = 0;
   } else {
     run.streak++;
-    if (run.streak % TUNING.clean.everyBeats === 0) {
+    if (run.streak % run.cleanEvery === 0) {
       state.clean++;
-      const count = (state.patClean[run.pattern.id] ?? 0) + 1;
-      state.patClean[run.pattern.id] = count;
-      events.push({ type: 'clean', pattern: run.pattern, count });
+      const id = run.pattern.id;
+      let count: number;
+      if (isClubId(id)) {
+        count = (state.clubClean[run.spins] ?? 0) + 1;
+        state.clubClean[run.spins] = count;
+      } else {
+        count = (state.patClean[id] ?? 0) + 1;
+        state.patClean[id] = count;
+      }
+      events.push({ type: 'clean', patternId: id, prop: run.prop, spins: run.spins, count });
     }
   }
   run.lastAuto = grade === 'auto';
@@ -198,6 +235,12 @@ function throwBall(run: RunState, state: SaveState, grade: ThrowGrade, rng: Rng)
     run.showcaseDone = true;
     state.core++;
     events.push({ type: 'showcase-cleared' });
+  }
+
+  // 7 球フラッシュ: 7 球すべてが同時に空中
+  if (!state.flash7 && run.prop === 'ball' && run.balls.length >= TUNING.tabs.stageBalls && run.balls.every((b) => b.flight)) {
+    state.flash7 = true;
+    events.push({ type: 'flash7' });
   }
 
   run.k++;
@@ -214,7 +257,7 @@ export function endRun(run: RunState, state: SaveState): RunEvent[] {
   const events: RunEvent[] = [{ type: 'drop' }];
   state.runs++;
   state.bestRun = Math.max(state.bestRun, run.beats);
-  if (!state.recordOpen && state.totalCatches >= TUNING.record.openAtTotalCatches) {
+  if (!state.recordOpen && state.totalCatches >= TUNING.tabs.recordCatches) {
     state.recordOpen = true;
     events.push({ type: 'record-open' });
   }

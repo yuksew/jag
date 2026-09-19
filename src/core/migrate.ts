@@ -2,6 +2,7 @@
 import { PATTERNS, type PatternId } from './patterns';
 import { fresh, SAVE_VERSION, type SaveState } from './state';
 import { NODES, type NodeId } from './tree';
+import type { Spins } from './tuning';
 
 export class MigrateError extends Error {
   override readonly name = 'MigrateError';
@@ -25,11 +26,11 @@ function strings(x: unknown): string[] {
   return Array.isArray(x) ? x.filter((v): v is string => typeof v === 'string') : [];
 }
 
-function numberMap<K extends string>(x: unknown, keys: readonly K[]): Partial<Record<K, number>> {
+function numberMap<K extends string | number>(x: unknown, keys: readonly K[]): Partial<Record<K, number>> {
   const out: Partial<Record<K, number>> = {};
   if (!isRecord(x)) return out;
   for (const k of keys) {
-    const v = x[k];
+    const v = x[String(k)];
     if (typeof v === 'number' && Number.isFinite(v) && v > 0) out[k] = v;
   }
   return out;
@@ -65,6 +66,20 @@ function fromV1(raw: Raw): SaveState {
   return s;
 }
 
+const SPIN_IDS: readonly Spins[] = [1, 2, 3];
+
+/** v2: v1 + クラブ（mode / spins / clubClean）、拍手、7 球フラッシュ */
+function fromV2(raw: Raw): SaveState {
+  const s = fromV1(raw);
+  s.mode = raw['mode'] === 'club' ? 'club' : 'ball';
+  const spins = num(raw['spins'], 1);
+  s.spins = SPIN_IDS.includes(spins as Spins) ? (spins as Spins) : 1;
+  s.clubClean = numberMap<Spins>(raw['clubClean'], SPIN_IDS);
+  s.applause = num(raw['applause'], 0);
+  s.flash7 = bool(raw['flash7'], false);
+  return s;
+}
+
 /**
  * 任意の JSON 値から最新の SaveState を作る。
  * 形が壊れていれば MigrateError（呼び出し側はバックアップからの復元を提案する）。
@@ -78,6 +93,8 @@ export function migrate(raw: unknown): SaveState {
       return fromV0(raw);
     case 1:
       return fromV1(raw);
+    case 2:
+      return fromV2(raw);
     default:
       throw new MigrateError(`unknown save version ${version}`);
   }

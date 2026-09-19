@@ -1,8 +1,10 @@
 import type { PatternId } from './patterns';
 import type { NodeId } from './tree';
-import { TUNING } from './tuning';
+import { TUNING, type Spins } from './tuning';
 
-export const SAVE_VERSION = 1 as const;
+export const SAVE_VERSION = 2 as const;
+
+export type PracticeMode = 'ball' | 'club';
 
 /** セーブされる状態。ここに無いものは保存しない */
 export interface SaveState {
@@ -21,6 +23,16 @@ export interface SaveState {
   pattern: PatternId;
   /** パターン別のクリーン数 */
   patClean: Partial<Record<PatternId, number>>;
+  /** 練習の種類（練習場の球か、クラブか） */
+  mode: PracticeMode;
+  /** クラブの回転数 */
+  spins: Spins;
+  /** 回転数別のクラブのクリーン数 */
+  clubClean: Partial<Record<Spins, number>>;
+  /** 拍手（路上で変換） */
+  applause: number;
+  /** 7 球フラッシュを達成したか */
+  flash7: boolean;
   /** 達成済みの節目 */
   milestones: string[];
   /** 解除済みの実績（Steam に依存しない id） */
@@ -42,6 +54,11 @@ export function fresh(): SaveState {
     balls: TUNING.balls.start,
     pattern: '3',
     patClean: {},
+    mode: 'ball',
+    spins: 1,
+    clubClean: {},
+    applause: 0,
+    flash7: false,
     milestones: [],
     achievements: [],
     recordOpen: false,

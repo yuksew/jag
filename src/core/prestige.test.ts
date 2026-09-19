@@ -23,12 +23,43 @@ describe('球数追加', () => {
     expect(s.tree).toEqual({}); // ツリーは持ち越し
   });
 
-  it('4 球: 4 と 53 のクリーンとコア 1 で完走（試作の終点。コアは消費しない）', () => {
+  it('4 球: 4 / 53 / 552 のクリーンとコア 1 で 5 球へ。クラブ練習中でも球の練習に戻る', () => {
     const s = fresh();
     s.balls = 4;
+    s.mode = 'club';
     s.patClean = { '4': 1, '53': 1 };
     s.core = 1;
-    expect(prestigeRequirement(s).isFinal).toBe(true);
+    expect(prestigeRequirement(s).ok).toBe(false);
+    s.patClean['552'] = 1;
+    expect(prestigeRequirement(s).isFinal).toBe(false);
+    expect(applyPrestige(s)).toBe('advanced');
+    expect(s.balls).toBe(5);
+    expect(s.pattern).toBe('5');
+    expect(s.mode).toBe('ball');
+  });
+
+  it('3 球から 7 球まで順に上がり、7 球の条件で完走（コアは消費しない）', () => {
+    const s = fresh();
+    const chain: Record<number, string[]> = {
+      3: ['3', '441', '531'],
+      4: ['4', '53', '552'],
+      5: ['5', '645', '744'],
+      6: ['6', '75', '756'],
+    };
+    for (const balls of [3, 4, 5, 6]) {
+      expect(s.balls).toBe(balls);
+      for (const id of chain[balls] ?? []) s.patClean[id as '3'] = 1;
+      s.core = 1;
+      expect(applyPrestige(s)).toBe('advanced');
+      expect(s.core).toBe(0);
+    }
+    expect(s.balls).toBe(7);
+    const r = prestigeRequirement(s);
+    expect(r.nextBalls).toBeNull();
+    expect(r.isFinal).toBe(true);
+    expect(r.patterns.map((p) => p.id)).toEqual(['7']);
+    s.patClean['7'] = 1;
+    s.core = 1;
     expect(applyPrestige(s)).toBe('done');
     expect(s.done).toBe(true);
     expect(s.core).toBe(1);

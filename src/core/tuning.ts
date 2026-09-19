@@ -1,5 +1,9 @@
 // 調整用の定数はすべてここに置く。関数の中に数値を直書きしない（CLAUDE.md）。
 // 値は docs/DESIGN.md「現在の調整値」と試作 reference/prototype.html に合わせてある。
+// 開発モードでは userData/tuning.override.json で上書きできる（override.ts）。
+
+export type BallCount = 3 | 4 | 5 | 6 | 7;
+export type Spins = 1 | 2 | 3;
 
 export const TUNING = {
   beat: {
@@ -46,8 +50,8 @@ export const TUNING = {
     flowBonusMs: 40,
   },
   clean: {
-    /** ノーミス連続がこの拍数に達するごとにクリーン +1 */
-    everyBeats: 30,
+    /** ノーミス連続がこの拍数に達するごとにクリーン +1（球数ごと。球が増えると出やすくなる） */
+    everyBeats: { 3: 30, 4: 30, 5: 27, 6: 24, 7: 20 } as Record<BallCount, number>,
   },
   showcase: {
     /** 見せ場の開始拍 = baseAt + perCore × 所持コア */
@@ -69,6 +73,20 @@ export const TUNING = {
     max: 7,
     /** 球数追加に消費するコア */
     prestigeCoreCost: 1,
+    /** 球数ごとの許容幅係数（「許容幅が狭まる」）。3・4 球は試作準拠で 1.0 */
+    toleranceFactor: { 3: 1, 4: 1, 5: 0.95, 6: 0.9, 7: 0.85 } as Record<BallCount, number>,
+    /** 球数ごとの高度係数（「要求高度が上がる」） */
+    heightFactor: { 3: 1, 4: 1, 5: 1.1, 6: 1.2, 7: 1.3 } as Record<BallCount, number>,
+  },
+  club: {
+    /** 回転数ごとの許容幅係数 */
+    toleranceFactor: { 1: 1, 2: 0.8, 3: 0.62 } as Record<Spins, number>,
+    /** 回転数ごとのキャッチ倍率（球のパターン係数の代わり） */
+    catchMult: { 1: 1.2, 2: 2, 3: 3.2 } as Record<Spins, number>,
+    /** 回転数ごとの高度係数 */
+    heightFactor: { 1: 1, 2: 1.35, 3: 1.7 } as Record<Spins, number>,
+    /** 次の回転数を解放するのに必要な、1 つ下の回転数のクリーン数 */
+    unlockCleans: 3,
   },
   flight: {
     /** 球が手に留まる時間 = 拍 × dwellFactor */
@@ -80,10 +98,24 @@ export const TUNING = {
     /** wobble のとき軌道を横にずらす量（描画幅に対する割合） */
     wobbleOffset: 0.03,
   },
-  record: {
+  tabs: {
     /** 記録帳が開く通算キャッチ数 */
-    openAtTotalCatches: 100,
+    recordCatches: 100,
+    /** クラブが開く球数 */
+    clubBalls: 4,
+    /** 路上が開く球数 */
+    streetBalls: 5,
+    /** パッシングが開く球数 */
+    passingBalls: 6,
+    /** 舞台: 7 球フラッシュ + 拍手 */
+    stageBalls: 7,
+    stageApplause: 1000,
   },
-} as const;
+};
 
 export type Tuning = typeof TUNING;
+
+/** 球数を 3〜7 に丸める（テーブル参照用） */
+export function ballCount(balls: number): BallCount {
+  return Math.min(TUNING.balls.max, Math.max(TUNING.balls.start, Math.round(balls))) as BallCount;
+}

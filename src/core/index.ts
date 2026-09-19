@@ -1,7 +1,10 @@
 // core の公開面。render / ui / audio / platform はここから import する。
 export * from './types';
-export { TUNING } from './tuning';
-export type { Tuning } from './tuning';
+export { TUNING, ballCount } from './tuning';
+export type { Tuning, BallCount, Spins } from './tuning';
+export * from './override';
+export * from './club';
+export * from './tabs';
 export * from './state';
 export * from './patterns';
 export * from './tree';
