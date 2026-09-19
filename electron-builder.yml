@@ -27,6 +27,9 @@ mac:
     - target: dir
       arch: [universal]
   category: public.app-category.games
+  # steamworks.js は x64 / arm64 両方の .node を同じ dist/osx に持つ。
+  # universal 化の「両アーキで同一ファイル」検査から外す（それぞれのアーキで正しい方が読まれる）
+  x64ArchFiles: "**/steamworks.js/dist/osx/*"
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlements: build/entitlements.mac.plist
