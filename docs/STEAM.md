@@ -72,7 +72,7 @@ App ID 取得前は Spacewar（480）で実績・オーバーレイ・Cloud の�
 
 ## ビルド／配信
 
-- GitHub Actions で 3 OS マトリクスビルド。タグ push でパッケージ生成
+- GitHub Actions（`.github/workflows/build.yml`）で 3 OS マトリクスビルド。main への push で Artifacts に zip、`v*` タグ push で GitHub Release に添付
 - macOS: Apple Developer ID で署名、`notarytool` で公証。CI に証明書を秘匿変数で置く
 - SteamCMD: `scripts/steam/app_build.vdf` と depot ごとの vdf。`pnpm steam:upload -- --branch <name>`
 - ブランチ: `dev`（自分用）→ `beta`（テスター、パスワード付き）→ `default`

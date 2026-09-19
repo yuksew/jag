@@ -1,0 +1,137 @@
+# main の更新で 3 OS のリリースパッケージを作る。
+# - push (main)      : チェック → マトリクスビルド → Actions の Artifacts に zip を置く
+# - push (v* タグ)   : 上記に加えて GitHub Release を作り、zip を添付する
+# - workflow_dispatch: 任意のブランチで手動実行（動作確認用）
+#
+# macOS の署名・公証（docs/STEAM.md）は秘匿変数が揃ってから有効になる。
+# MAC_CSC_LINK / MAC_CSC_KEY_PASSWORD が無ければ未署名のまま .app を作る。
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+  ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+
+jobs:
+  check:
+    name: test / typecheck / lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+
+  package:
+    name: package (${{ matrix.name }})
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows
+            os: windows-latest
+            script: build:win
+            dir: win-unpacked
+          - name: macos
+            os: macos-latest
+            script: build:mac
+            dir: mac-universal
+          - name: linux
+            os: ubuntu-latest
+            script: build:linux
+            dir: linux-unpacked
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/cache@v4
+        with:
+          path: .cache
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - run: pnpm install --frozen-lockfile
+
+      - name: Read version
+        id: meta
+        shell: bash
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Package
+        run: pnpm ${{ matrix.script }}
+        env:
+          # 署名は秘匿変数がある場合だけ。無ければ自動探索も止めて未署名で通す
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Zip (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $v = "${{ steps.meta.outputs.version }}"
+          7z a -tzip "sankyu-$v-windows-x64.zip" ".\release\$v\${{ matrix.dir }}\*"
+
+      - name: Zip (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          v="${{ steps.meta.outputs.version }}"
+          # .app はシンボリックリンクを含むので ditto で固める
+          ditto -c -k --sequesterRsrc --keepParent "release/$v/${{ matrix.dir }}/三球.app" "sankyu-$v-macos-universal.zip"
+
+      - name: Zip (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          v="${{ steps.meta.outputs.version }}"
+          (cd "release/$v/${{ matrix.dir }}" && zip -ryq "../../../sankyu-$v-linux-x64.zip" .)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sankyu-${{ steps.meta.outputs.version }}-${{ matrix.name }}
+          path: sankyu-*.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Check tag matches package.json
+        run: |
+          ls -l dist
+          test -n "$(ls dist/sankyu-${GITHUB_REF_NAME#v}-*.zip 2>/dev/null)" || { echo "タグ ${GITHUB_REF_NAME} と package.json の version が一致しない"; exit 1; }
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true
