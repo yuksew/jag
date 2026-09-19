@@ -8,6 +8,9 @@ import {
   isShown,
   manualYield,
   canOpenShow,
+  canSeal,
+  initialFatigue,
+  isSealed,
   passCleans,
   passingPatterns,
   passRatio,
@@ -51,6 +54,7 @@ export interface PaneActions {
   selectPassing(id: PatternId): void;
   openShow(): void;
   convert(): void;
+  seal(id: PatternId): void;
   buy(id: NodeId): void;
   prestige(): void;
 }
@@ -197,7 +201,7 @@ export class Pane {
     for (const p of patternsUpTo(state.balls)) {
       const on = state.mode === 'ball' && p.id === state.pattern;
       const un = isPatternUnlocked(state, p.id);
-      const lockText = p.unlockNode ? t.patternLocked(t.nodes[p.unlockNode].name) : '';
+      const lockText = isSealed(state, p.id) ? t.seal.sealed : p.unlockNode ? t.patternLocked(t.nodes[p.unlockNode].name) : '';
       h += `<button data-pat="${p.id}" class="${on ? 'on' : ''}" ${un ? '' : 'disabled'}>`;
       h += `<b>${esc(t.patterns[p.id].name)}</b><span>${esc(un ? t.patterns[p.id].desc : lockText)}</span></button>`;
     }
@@ -285,7 +289,18 @@ export class Pane {
     h += `<div class="milestone"><span>${t.record.runs}</span><b>${state.runs}</b></div>`;
     for (const id of Object.keys(PATTERNS) as PatternId[]) {
       const n = state.patClean[id];
-      if (n) h += `<div class="milestone"><span>${esc(t.record.patternClean(t.patterns[id].name))}</span><b>${n}</b></div>`;
+      if (n) h += `<div class="milestone"><span>${esc(t.record.patternClean(t.patterns[id].name))}${isSealed(state, id) ? `（${t.seal.sealed}）` : ''}</span><b>${n}</b></div>`;
+    }
+    // 封印
+    h += `<h2>${t.seal.head}</h2><p class="note">${esc(t.seal.intro)}</p>`;
+    h += `<p class="note">${esc(t.seal.fatigueNow(state.balls, Math.round(initialFatigue(state) * 100) / 100))}</p>`;
+    for (const id of Object.keys(PATTERNS) as PatternId[]) {
+      if (!state.patClean[id]) continue;
+      const sealed = isSealed(state, id);
+      h += `<div class="node"><div class="n">${esc(t.patterns[id].name)}<em>${PATTERNS[id].balls}球</em></div><div class="d">${esc(t.patterns[id].desc)}</div>`;
+      if (sealed) h += `<button class="max" disabled>${t.seal.sealed}</button>`;
+      else h += `<button data-seal="${id}" ${canSeal(state, id) ? '' : 'disabled'}>${t.seal.button}</button>`;
+      h += '</div>';
     }
     return h;
   }
@@ -314,6 +329,9 @@ export class Pane {
         if (run.on) return;
         this.actions.selectPassing(b.dataset['pass'] as PatternId);
       };
+    }
+    for (const b of this.paneEl.querySelectorAll<HTMLButtonElement>('[data-seal]')) {
+      b.onclick = () => this.actions.seal(b.dataset['seal'] as PatternId);
     }
     const sb = this.paneEl.querySelector<HTMLButtonElement>('#show-btn');
     if (sb) sb.onclick = () => this.actions.openShow();

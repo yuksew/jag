@@ -7,6 +7,7 @@ import {
   convertCatches,
   isClubId,
   selectClub,
+  seal,
   selectPassing,
   selectStage,
   selectStreet,
@@ -21,6 +22,7 @@ import {
   type RunEvent,
   type SaveState,
   type Spins,
+  TUNING,
 } from './core';
 import { t } from './i18n';
 import { bindThrowInput } from './input';
@@ -101,6 +103,19 @@ const pane = new Pane(
       flushSave();
       render();
     },
+    seal(id: PatternId) {
+      if (run.on) return;
+      void askDialog(t.seal.confirm(t.patterns[id].name), [
+        { label: t.seal.button, value: true, primary: true },
+        { label: t.buttons.cancel, value: false },
+      ]).then((ok) => {
+        if (!ok || !seal(state, id)) return;
+        toast.show(t.toast.sealed(t.patterns[id].name));
+        unlockAchievements();
+        flushSave();
+        render();
+      });
+    },
     convert() {
       const gained = convertCatches(state);
       if (gained <= 0) return;
@@ -118,7 +133,7 @@ const pane = new Pane(
       if (run.on) return;
       const before = state.balls;
       if (applyPrestige(state) === 'blocked') return;
-      toast.show(t.toast.prestige(state.balls));
+      toast.show(`${t.toast.prestige(state.balls)} ${t.toast.sp(TUNING.balls.spPerPrestige)}`);
       log.info(`prestige ${before} -> ${state.balls}`);
       unlockAchievements();
       flushSave();

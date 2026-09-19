@@ -18,7 +18,8 @@ export class Hud {
     const wallet = byId('wallet');
     wallet.innerHTML =
       (['catch', 'clean', 'core'] as const).map((k) => `<div><b id="w-${k}">0</b><span>${t.currency[k]}</span></div>`).join('') +
-      `<div id="w-applause-box" hidden><b id="w-applause">0</b><span>${t.applause}</span></div>`;
+      `<div id="w-applause-box" hidden><b id="w-applause">0</b><span>${t.applause}</span></div>` +
+      `<div id="w-sp-box" hidden><b id="w-sp">0</b><span>${t.currency.sp}</span></div>`;
     const hud = byId('hud');
     hud.innerHTML =
       `<div class="stat">` +
@@ -44,6 +45,8 @@ export class Hud {
     this.wCore.textContent = String(state.core);
     this.wApplause.textContent = String(state.applause);
     byId('w-applause-box').hidden = !(state.applause > 0 || state.shown.length > 0 || state.mode === 'street');
+    byId('w-sp').textContent = String(state.sp);
+    byId('w-sp-box').hidden = !(state.sp > 0 || state.balls > 3);
   }
 
   run(run: RunState): void {
