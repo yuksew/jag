@@ -1,0 +1,36 @@
+# electron-builder の設定。Steam 向けなので Windows / Linux は dir 出力（インストーラ不要）。
+# macOS は universal の .app。署名・公証は CI の環境変数で行う（docs/STEAM.md）。
+appId: dev.yuksew.sankyu
+productName: 三球
+copyright: Copyright © 2026 yuksew
+directories:
+  buildResources: build
+  output: release/${version}
+files:
+  - out/**
+  - package.json
+  - "!**/*.map"
+asarUnpack:
+  - "**/*.node"
+extraResources: []
+win:
+  target:
+    - target: dir
+      arch: [x64]
+mac:
+  target:
+    - target: dir
+      arch: [universal]
+  category: public.app-category.games
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: false
+linux:
+  target:
+    - target: dir
+      arch: [x64]
+  category: Game
+npmRebuild: false
+publish: null

@@ -1,0 +1,14 @@
+"AppBuild"
+{
+  "AppID" "480"
+  "Desc" "{{DESC}}"
+  "SetLive" "{{BRANCH}}"
+  "ContentRoot" "{{ROOT}}/release"
+  "BuildOutput" "{{ROOT}}/out/steam/logs"
+  "Depots"
+  {
+    "481" "depot_build_windows.vdf"
+    "482" "depot_build_mac.vdf"
+    "483" "depot_build_linux.vdf"
+  }
+}

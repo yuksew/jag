@@ -1,0 +1,13 @@
+"DepotBuild"
+{
+  "DepotID" "481"
+  "FileMapping"
+  {
+    "LocalPath" "*/win-unpacked/*"
+    "DepotPath" "."
+    "recursive" "1"
+  }
+  "FileExclusion" "*.pdb"
+  "FileExclusion" "steam_appid.txt"
+  "FileExclusion" "*.map"
+}

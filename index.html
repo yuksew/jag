@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:">
+<title>三球</title>
+<style>
+  :root { --bg:#E9E3D6; --ink:#22343A; --muted:#66797E; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#22343A; --ink:#F2E9D8; --muted:#95AAAE; } }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--ink);
+    font-family:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,sans-serif; }
+  #app { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:8px; }
+  #app small { color:var(--muted); }
+</style>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
