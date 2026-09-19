@@ -81,6 +81,8 @@ scripts/steam/ SteamCMD 用の app_build / depot_build vdf と upload スクリ�
 .github/workflows/build.yml  main / タグで 3 OS ビルド（macOS は Secrets があれば署名・公証）
 .github/workflows/steam.yml  手動実行で SteamCMD アップロード
 tests/smoke.mjs Playwright による起動スモーク（`pnpm smoke`）
+tests/shots.mjs 主要画面のスクリーンショット撮影（`xvfb-run -a env SHOTS_OUT=<dir> node tests/shots.mjs`）
+.claude/agents/ 担当エージェント（graphics / ui / sound / art-director）。運用は docs/TEAM.md
 docs/DESIGN.md 設計書
 docs/STEAM.md  Steam リリース要件とチェックリスト
 docs/PROMPTS.md Claude Code への指示（マイルストーンごと）
@@ -90,6 +92,7 @@ docs/TUNING.md 数値調整の手順（tuning.override.json）
 docs/ART.md    画像差し替えの計画
 docs/DECISIONS.md 設計判断の記録（未決事項への回答）
 docs/RELEASE_CHECK.md リリース前チェックリストの確認結果
+docs/TEAM.md   担当エージェントと、外に任せる作業（キービジュアル、音楽、実機テストなど）
 reference/prototype.html  単一ファイルの試作。ここから移植する
 ```
 
