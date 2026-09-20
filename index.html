@@ -7,22 +7,26 @@
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <h1 id="title"></h1>
-    <div class="wallet" id="wallet"></div>
-  </header>
   <div class="grid">
     <section class="arena">
       <canvas id="cv" width="760" height="470"></canvas>
       <div class="toast" id="toast"></div>
       <div class="hud" id="hud"></div>
+      <div class="foot" id="foot"></div>
     </section>
     <aside class="side">
+      <header class="booth">
+        <h1 id="title"></h1>
+        <div class="wallet" id="wallet"></div>
+      </header>
       <div class="tabs" id="tabs"></div>
-      <div class="pane" id="pane"></div>
+      <div class="poster">
+        <i class="pin l"></i><i class="pin r"></i>
+        <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+        <div class="pane" id="pane"></div>
+      </div>
     </aside>
   </div>
-  <div class="foot" id="foot"></div>
 </div>
 <script type="module" src="/src/main.ts"></script>
 </body>

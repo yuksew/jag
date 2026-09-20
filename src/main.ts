@@ -139,7 +139,7 @@ const pane = new Pane(
     convert() {
       const gained = convertCatches(state);
       if (gained <= 0) return;
-      toast.show(t.toast.converted(gained));
+      toast.show(t.toast.converted(gained), 'applause');
       unlockAchievements();
       flushSave();
       render();
@@ -154,7 +154,7 @@ const pane = new Pane(
       const before = state.balls;
       if (applyPrestige(state) === 'blocked') return;
       audio.sfx('prestige');
-      toast.show(`${t.toast.prestige(state.balls)} ${t.toast.sp(TUNING.balls.spPerPrestige)}`);
+      toast.show(`${t.toast.prestige(state.balls)} ${t.toast.sp(TUNING.balls.spPerPrestige)}`, 'core');
       log.info(`prestige ${before} -> ${state.balls}`);
       unlockAchievements();
       flushSave();
@@ -208,6 +208,7 @@ function onEvents(events: RunEvent[]): void {
                 ? t.passing.runName(t.patterns[e.patternId].name)
                 : t.patterns[e.patternId].name,
           ),
+          'clean',
         );
         break;
       case 'flash7':
@@ -219,17 +220,17 @@ function onEvents(events: RunEvent[]): void {
         break;
       case 'show-complete':
         audio.sfx('show-complete');
-        toast.show(t.toast.showComplete);
+        toast.show(t.toast.showComplete, 'core');
         log.info(`show complete beats=${e.beats}`);
         paneDirty = true;
         break;
       case 'shown':
         audio.sfx('shown');
-        if (!isClubId(e.patternId)) toast.show(t.toast.shown(t.patterns[e.patternId].name, e.bonus));
+        if (!isClubId(e.patternId)) toast.show(t.toast.shown(t.patterns[e.patternId].name, e.bonus), 'applause');
         paneDirty = true;
         break;
       case 'showcase-cleared':
-        toast.show(t.toast.showcase);
+        toast.show(t.toast.showcase, 'core');
         audio.sfx('showcase');
         setPresence(t.presence.showcase(state.balls));
         break;

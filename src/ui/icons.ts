@@ -1,4 +1,5 @@
 // UI の単色アイコン（インライン SVG、currentColor）。外部リソースを読まない（docs/ART.md）
+// 絵柄は「サーカスの興行ポスターと切符」（docs/UI_DIRECTION.md）。通貨は「物」で描く
 import type { Branch, CurrencyKey, TabId } from '../core';
 
 const wrap = (body: string, cls = ''): string =>
@@ -6,16 +7,34 @@ const wrap = (body: string, cls = ''): string =>
 
 /** 通貨（キャッチ・クリーン・コア・体得点）と拍手 */
 export const CURRENCY_ICON: Record<CurrencyKey | 'applause', string> = {
-  // 手のひらに球
-  catch: wrap('<circle cx="12" cy="6.5" r="3"/><path d="M4 14c2.5 0 4 1.5 5.5 3M4 14v6M4 14c0-1 .8-1.8 1.8-1.8H14c1.2 0 2 .8 2 2s-.8 2-2 2h-3.5M14 16.2l4.6-2.1c1-.5 2.1 0 2.4 1 .3.9-.2 1.8-1 2.2L13 20.5H9"/>'),
-  // きらめき
-  clean: wrap('<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z" fill="currentColor" stroke="none"/>'),
-  // 六角の核
-  core: wrap('<path d="M12 2.5l8 4.6v9.8l-8 4.6-8-4.6V7.1z"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>'),
-  // 星（体得）
-  sp: wrap('<path d="M12 2.8l2.7 5.8 6.3.7-4.7 4.3 1.3 6.2L12 16.7l-5.6 3.1 1.3-6.2L3 9.3l6.3-.7z"/>'),
-  // 拍手
-  applause: wrap('<path d="M7 11.5V6a1.6 1.6 0 013.2 0v4M10.2 10V4.6a1.6 1.6 0 013.2 0V10M13.4 10V5.6a1.6 1.6 0 013.2 0v6M16.6 11.6V8.4a1.6 1.6 0 013.2 0V15c0 3.9-2.9 6.5-6.6 6.5S6.6 19 6.6 15v-2.4a1.6 1.6 0 013.2 0"/><path d="M3 5l1.5 1.5M2.5 9H4.5M4 2.5l.7 2"/>'),
+  // 手のひらと、その上の球
+  catch: wrap(
+    '<circle cx="12.5" cy="5.6" r="3.1"/>' +
+      '<path d="M4.5 13.2c0-1 .8-1.8 1.8-1.8h7.6c1.1 0 2 .9 2 2s-.9 2-2 2h-3.4"/>' +
+      '<path d="M4.5 13.2v5.4c0 1.7 1.3 2.9 3 2.9h6.6c1.3 0 2.5-.7 3.1-1.8l2.4-4.1c.5-.9.2-2-.7-2.5-.8-.4-1.8-.1-2.3.7l-1.9 2.6"/>',
+  ),
+  // 星形の判子（押した跡）
+  clean: wrap(
+    '<path d="M12 3.6l2.4 5 5.5.6-4.1 3.8 1.1 5.4L12 15.7l-4.9 2.7 1.1-5.4-4.1-3.8 5.5-.6z" fill="currentColor" stroke="none"/>' +
+      '<circle cx="12" cy="12" r="10" stroke-dasharray="2.2 2.4"/>',
+  ),
+  // 金貨（縁と内側の輪、真ん中に刻印）
+  core: wrap(
+    '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="6" stroke-width="1.2"/>' +
+      '<path d="M12 8.6l2 2-2 2-2-2z" fill="currentColor" stroke="none"/><path d="M9.5 15.4h5" stroke-width="1.2"/>',
+  ),
+  // リボン章（円章と 2 本のリボン）
+  sp: wrap(
+    '<circle cx="12" cy="8.6" r="5.6"/>' +
+      '<path d="M12 5.4l.9 1.9 2.1.3-1.5 1.5.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.5 2.1-.3z" fill="currentColor" stroke="none"/>' +
+      '<path d="M9.2 13.4L7.6 21l4.4-2.2 4.4 2.2-1.6-7.6"/>',
+  ),
+  // 手袋 2 つ（拍手）
+  applause: wrap(
+    '<path d="M2.6 12.2V8.6a1.3 1.3 0 012.6 0v3.4M5.2 11.6V6.8a1.3 1.3 0 012.6 0v4.8M7.8 11.4V8a1.3 1.3 0 012.6 0v5.4c0 2.9-1.9 5-4.6 5-2.1 0-3.4-1.2-4.1-2.9L.9 13.3"/>' +
+      '<path d="M21.4 12.2V8.6a1.3 1.3 0 00-2.6 0v3.4M18.8 11.6V6.8a1.3 1.3 0 00-2.6 0v4.8M16.2 11.4V8a1.3 1.3 0 00-2.6 0v5.4c0 2.9 1.9 5 4.6 5 2.1 0 3.4-1.2 4.1-2.9l.8-2.2"/>' +
+      '<path d="M11 4.2l1 1.6M13 4.2l-1 1.6" stroke-width="1.4"/>',
+  ),
 };
 
 /** タブ */
@@ -24,7 +43,7 @@ export const TAB_ICON: Record<TabId, string> = {
   practice: wrap('<path d="M4 18c2-9 6-13 8-13s6 4 8 13"/><circle cx="12" cy="5.5" r="2.2" fill="currentColor" stroke="none"/><path d="M3 20h18"/>'),
   // 人
   body: wrap('<circle cx="12" cy="5" r="2.6"/><path d="M6 11l4-1.5h4l4 1.5M10 9.5v11M14 9.5v11M10 15h4"/>'),
-  // ノート
+  // 帳面
   record: wrap('<path d="M6 3.5h11.5a1 1 0 011 1v15a1 1 0 01-1 1H6a1.5 1.5 0 01-1.5-1.5V5A1.5 1.5 0 016 3.5z"/><path d="M8.5 8h6M8.5 11.5h6M8.5 15h4"/>'),
   // クラブ
   club: wrap('<path d="M13.5 3.5c1.6 0 2.8 1.4 2.4 3l-2.6 9.3-2.3-.7L12.8 6c.2-1.5-.1-2.5.7-2.5z"/><path d="M10.9 15.1l2.4.7-1.2 4.4a1.3 1.3 0 01-2.5-.7z"/><circle cx="8.6" cy="19.2" r="1.2"/>'),
@@ -53,12 +72,27 @@ export const UNLOCK_ICON = wrap('<rect x="5" y="10.5" width="14" height="10" rx=
 export const CHECK_ICON = wrap('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/>', 'check');
 /** 空の丸（未達） */
 export const CIRCLE_ICON = wrap('<circle cx="12" cy="12" r="9"/>', 'check');
-/** 完走のトロフィー */
+/** 朱印（達成の印。かすれた縁とチェック） */
+export const STAMP_ICON = wrap(
+  '<circle cx="12" cy="12" r="9.6" stroke-width="2" stroke-dasharray="7 1.6 3 1.2 9 1.4 5 1.1"/><path d="M7.6 12.4l3 3 5.8-6.4" stroke-width="2.2"/>',
+  'stamp',
+);
+/** 完走のトロフィー（互換のため残す） */
 export const TROPHY_ICON = wrap('<path d="M7 4h10v5a5 5 0 01-10 0z"/><path d="M7 6H4.5a2.5 2.5 0 002.5 4M17 6h2.5a2.5 2.5 0 01-2.5 4M12 14v3M8.5 20h7M10 17h4l1 3H9z"/>', 'trophy');
 /** 封印 */
 export const SEAL_ICON = wrap('<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12h6M12 9v6"/>');
 /** 変換（矢印） */
 export const CONVERT_ICON = wrap('<path d="M5 12h13l-4-4M18 12l-4 4"/>');
+/** 投げ銭の帽子（山高帽を伏せた形） */
+export const HAT_ICON = wrap('<path d="M3.5 14.5h17"/><path d="M6 14.5c0-4.5 2.4-8.5 6-8.5s6 4 6 8.5"/><path d="M6.5 14.5l.8 4c.2.9.9 1.5 1.8 1.5h5.8c.9 0 1.6-.6 1.8-1.5l.8-4"/><path d="M9 6.8c1-.6 2-.8 3-.8s2 .2 3 .8" stroke-width="1.2"/>');
+/** 相方の顔（札に描く） */
+export const PARTNER_ICON = wrap(
+  '<circle cx="12" cy="11" r="7.5"/><path d="M6 8.5c1.5-2.5 3.5-3.5 6-3.5s4.5 1 6 3.5" stroke-width="1.4"/>' +
+    '<circle cx="9.5" cy="11.2" r=".9" fill="currentColor" stroke="none"/><circle cx="14.5" cy="11.2" r=".9" fill="currentColor" stroke="none"/>' +
+    '<path d="M9.5 14.2c.8.9 1.6 1.3 2.5 1.3s1.7-.4 2.5-1.3"/><path d="M5 21.5c1.5-1.8 4-2.8 7-2.8s5.5 1 7 2.8"/>',
+);
+/** 幕（見出しの飾り） */
+export const CURTAIN_ICON = TAB_ICON.stage;
 /** 設定の見出し用 */
 export const SETTINGS_ICON: Record<'display' | 'sound' | 'input' | 'lang' | 'save', string> = {
   display: wrap('<rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8 20h8M12 16.5V20"/>'),
@@ -91,9 +125,12 @@ export function siteswapFigure(siteswap: readonly number[]): string {
   return `<svg class="ss" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true"><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><g fill="currentColor">${dots}</g></svg>`;
 }
 
-/** 段階の点（●●○○○） */
-export function levelDots(level: number, max: number): string {
-  let h = '<span class="dots" aria-hidden="true">';
+/** 段階の判子（押した分が琥珀インク） */
+export function levelStamps(level: number, max: number): string {
+  let h = '<span class="stamps" aria-hidden="true">';
   for (let i = 0; i < max; i++) h += `<i class="${i < level ? 'on' : ''}"></i>`;
   return h + '</span>';
 }
+
+/** 互換名（段階の点） */
+export const levelDots = levelStamps;

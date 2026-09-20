@@ -44,6 +44,8 @@ export const ja = {
     shownCount: '見せたパターン',
     shownValue: (n: number) => `${n} 種`,
     shownHint: '1 種ごとに拍手のレート +30%',
+    /** 数値ビラの見出し */
+    flyerHead: '本日の稽古',
   },
   buttons: {
     start: '投げ始める',
@@ -88,6 +90,7 @@ export const ja = {
     note2: '奇数拍は相方が投げる（入力不要、必ず成立、疲労は増えない）。偶数拍は自分の判定。奇数のサイトスワップ値が相方へのパスになる。',
     cleanCount: (n: number) => `このパターンのパッシングのクリーン：${n}（球数追加の条件には数えない）`,
     runName: (patternName: string) => `パッシング ${patternName}`,
+    partner: '相方',
   },
   stage: {
     head: 'ショー',
@@ -97,6 +100,8 @@ export const ja = {
     progress: (beats: number, need: number) => `ショー ${beats}/${need} 拍`,
     doneHead: '完走',
     doneBody: 'ショーは成立した。三球はここまで。',
+    /** 完走ポスターの上書き */
+    finale: '千秋楽',
     stats: { totalCatches: '通算キャッチ', runs: '投げた回数', best: '最長', applause: '拍手', shown: '見せたパターン' },
   },
   club: {
@@ -160,6 +165,8 @@ export const ja = {
   },
   record: {
     locked: '通算100キャッチで開く。',
+    /** 番付の頭 */
+    head: '番付',
     milestonesHead: '節目',
     recordsHead: '記録',
     totalCatches: '通算キャッチ',

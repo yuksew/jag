@@ -43,6 +43,7 @@ export const en: Strings = {
     shownCount: 'Patterns shown',
     shownValue: (n) => `${n}`,
     shownHint: '+30% applause rate per pattern',
+    flyerHead: "Today's practice",
   },
   buttons: {
     start: 'Start',
@@ -86,6 +87,7 @@ export const en: Strings = {
     note2: 'Odd beats are thrown by your partner (no input, never fails, no fatigue). Even beats are yours. Odd siteswap values are passes to the partner.',
     cleanCount: (n) => `Passing cleans on this pattern: ${n} (do not count toward adding a ball)`,
     runName: (patternName) => `Passing ${patternName}`,
+    partner: 'Partner',
   },
   stage: {
     head: 'The show',
@@ -95,6 +97,7 @@ export const en: Strings = {
     progress: (beats, need) => `Show ${beats}/${need} beats`,
     doneHead: 'Complete',
     doneBody: 'The show is done. This is the end of Sankyu.',
+    finale: 'Final Night',
     stats: { totalCatches: 'Total catches', runs: 'Runs', best: 'Longest', applause: 'Applause', shown: 'Patterns shown' },
   },
   club: {
@@ -155,6 +158,7 @@ export const en: Strings = {
   },
   record: {
     locked: 'Opens at 100 total catches.',
+    head: 'Rankings',
     milestonesHead: 'Milestones',
     recordsHead: 'Records',
     totalCatches: 'Total catches',

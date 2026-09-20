@@ -158,14 +158,20 @@ export class Arena {
     this.fit();
   }
 
-  /** 表示幅に合わせて解像度を決める（DPR は 2 まで） */
+  /**
+   * 表示幅に合わせて解像度を決める（DPR は 2 まで）。
+   * 高さは幅 × 0.62 を下限に、画面の残り（HUD と注釈を除く）まで伸ばす。縦に余裕があるほど高い投げが切れない
+   */
   fit(): void {
     const r = this.canvas.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.dpr = dpr;
     this.w = Math.round(r.width);
-    this.h = Math.round(r.width * 0.62);
+    const reserved = ['hud', 'foot'].reduce((sum, id) => sum + (document.getElementById(id)?.offsetHeight ?? 0), 0) + 12;
+    const available = window.innerHeight - reserved;
+    this.h = Math.round(Math.min(Math.max(r.width * 0.62, available), r.width * 1.05));
     this.canvas.style.height = `${this.h}px`;
+    this.canvas.parentElement?.style.setProperty('--cv-h', `${this.h}px`);
     this.canvas.width = this.w * dpr;
     this.canvas.height = this.h * dpr;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
