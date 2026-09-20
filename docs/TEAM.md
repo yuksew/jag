@@ -24,7 +24,7 @@ Claude Code では品質が出ない・確認できない作業は人間かほ�
 
 | 作業 | なぜ難しいか | 任せ先の案 | 受け渡し |
 |---|---|---|---|
-| キービジュアル、ストアのカプセル画像、ジャグラーのキャラクターデザイン | 絵柄の統一と「絵としての魅力」は生成では品質が安定しない。Steam の第一印象を決める | イラストレーターに発注（Skeb / Coconala / ArtStation）。下絵や方向出しには画像生成（Midjourney、Stable Diffusion、Adobe Firefly）を使ってから渡す | `docs/ART.md` の一覧とサイズ。納品は SVG またはフルカラー PNG（2 倍解像度）。`src/assets/game/` に置けば `graphics` が組み込む |
+| キービジュアル、ストアのカプセル画像、ジャグラーのキャラクターデザイン | 絵柄の統一と「絵としての魅力」は生成では品質が安定しない。Steam の第一印象を決める | イラストレーターに発注（Skeb / Coconala / ArtStation）、または画像生成（Midjourney、Stable Diffusion、Adobe Firefly）を「イラストレーター」として使う。キャラクターは `docs/CHARACTER.md` の設定とプロンプトで方向出し | `docs/ART.md` の一覧とサイズ。納品は SVG またはフルカラー PNG（2 倍解像度）。`src/assets/game/` に置けば `graphics` が組み込む |
 | 球・クラブ・手・背景の最終仕上げ | `graphics` が作る SVG は「それらしい」止まり。質感と統一感は人の手が要る | 同上のイラストレーター、またはピクセルアート／ベクター専門のデザイナー | 同上 |
 | UI アイコン一式（通貨 4、タブ 7、系統 5、鍵） | 単色アイコンは `ui` が作れるが、太さ・角の統一と可読性の詰めは専門領域 | アイコンデザイナー、または既存アイコン集（Lucide、Tabler、Phosphor: MIT）から選んで揃える | `src/ui/icons.ts` にインライン SVG（currentColor）。ライセンス表記を `THIRD_PARTY_NOTICES.md` に |
 | BGM（練習場、路上、舞台、完走） | Web Audio の合成では「曲」にならない。無音でも成立する設計だが、ストア動画と完走の場面には要る | 作曲家に発注（BOOTH / Coconala / Fiverr）、または音楽生成（Suno、Udio）で仮曲 → 商用ライセンス確認 | OGG / MP3 を `src/assets/audio/` に。`sound` が再生と音量、設定のオン／オフを組み込む |

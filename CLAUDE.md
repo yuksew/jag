@@ -90,6 +90,7 @@ docs/PROTOTYPE_DIFF.md 試作と DESIGN.md の差分表
 docs/PORT_CHECK.md 試作と移植版の挙動比較手順
 docs/TUNING.md 数値調整の手順（tuning.override.json）
 docs/ART.md    画像差し替えの計画
+docs/CHARACTER.md 主人公（案 B）の設定・表情・パーツ分割・画像生成 AI 向けプロンプト。参考シートは docs/art/
 docs/DECISIONS.md 設計判断の記録（未決事項への回答）
 docs/RELEASE_CHECK.md リリース前チェックリストの確認結果
 docs/TEAM.md   担当エージェントと、外に任せる作業（キービジュアル、音楽、実機テストなど）

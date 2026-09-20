@@ -72,6 +72,13 @@
 - 開発時は cwd に `steam_appid.txt` を書く。本番は `files` で除外し、steam.yml でも検査する
 - 統計は total_catches / best_run / complete_ms。遊んだ時間は「拍数 × 間隔」で数える（state.playMs）
 
+## 見た目の改善
+
+- 担当ごとのエージェント（graphics / ui / sound / art-director）で並行改善。運用は docs/TEAM.md
+- 絵柄（線画 / 塗り）の比較は作ったが、課題は「キャラクターとして貧弱」だったので、トーンではなくキャラクター設計に切り替えた。ink / paint スタイルはコードに残す（既定は vector）
+- ジャグラーは 3 案（A 街角の名人、B サーカスの新人、C 現代のジャグラー）から **B を採用**。A / C はコードに残す（data-character）
+- B を画像生成 AI かイラストレーターに渡す資料を docs/CHARACTER.md と docs/art/character-b-reference.png に置く。素材が来るまでは手続き描画のまま
+
 ## 未決のまま
 
 - 落球の回収（入力にどう落とすか）
