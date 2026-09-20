@@ -36,22 +36,33 @@ function lcgOld(seed: number): () => number {
   };
 }
 
+/**
+ * 夜の稽古場の基調色（ダークテーマ）。ページの壁と同系にするため、テーマの青緑（--bg）は使わず
+ * 琥珀（--amber）と墨（--ink）の混色を暗くして作る。ライトでは使わない。
+ */
+function nightWarm(pal: Palette): RGBA {
+  return darken(mix(pal.ink, pal.amber, 0.5), 0.72);
+}
+
 function floorColor(pal: Palette, prop: PracticeMode): RGBA {
-  if (prop === 'street') return mix(pal.panel2, pal.muted, pal.dark ? 0.2 : 0.14);
+  if (prop === 'street') return pal.dark ? darken(mix(nightWarm(pal), pal.muted, 0.35), 0.1) : mix(pal.panel2, pal.muted, 0.14);
   if (prop === 'stage') return darken(mix(pal.panel2, pal.amber, 0.18), pal.dark ? 0.45 : 0.32);
-  return mix(pal.panel2, pal.amber, pal.dark ? 0.06 : 0.12);
+  if (pal.dark) return darken(mix(pal.amber, pal.coral, 0.3), 0.6);
+  return mix(pal.panel2, pal.amber, 0.12);
 }
 
 function wallTop(pal: Palette, prop: PracticeMode): RGBA {
-  if (prop === 'street') return mix(pal.panel, pal.sky, pal.dark ? 0.1 : 0.16);
+  if (prop === 'street') return pal.dark ? mix(lighten(nightWarm(pal), 0.06), pal.sky, 0.1) : mix(pal.panel, pal.sky, 0.16);
   if (prop === 'stage') return darken(pal.panel2, pal.dark ? 0.55 : 0.5);
-  return lighten(pal.panel, pal.dark ? 0 : 0.35);
+  if (pal.dark) return lighten(nightWarm(pal), 0.08);
+  return lighten(pal.panel, 0.35);
 }
 
 function wallBottom(pal: Palette, prop: PracticeMode): RGBA {
-  if (prop === 'street') return mix(pal.panel2, pal.muted, 0.08);
+  if (prop === 'street') return pal.dark ? darken(nightWarm(pal), 0.1) : mix(pal.panel2, pal.muted, 0.08);
   if (prop === 'stage') return darken(pal.panel2, pal.dark ? 0.35 : 0.28);
-  return pal.dark ? darken(pal.panel2, 0.12) : mix(pal.panel2, pal.line, 0.25);
+  if (pal.dark) return darken(nightWarm(pal), 0.2);
+  return mix(pal.panel2, pal.line, 0.25);
 }
 
 function drawBoards(ctx: CanvasRenderingContext2D, w: number, y0: number, y1: number, pal: Palette, base: RGBA): void {
@@ -116,6 +127,32 @@ function spectatorBody(sp: Spectator): Pt[] {
   ];
 }
 
+export interface AudienceGroup {
+  x0: number;
+  x1: number;
+  baseY: number;
+  scale: number;
+  count: number;
+  seed: number;
+  color: string;
+  /** 「見せた」で明るくなるときの色 */
+  bright: string;
+}
+
+/** 路上の観客の並び（奥 1 列、手前の左右）。静的な背景と動く客席（audience.ts）で共有する */
+export function streetAudience(w: number, h: number, pal: Palette): AudienceGroup[] {
+  const back = rgba(mix(pal.ink, pal.muted, 0.4), pal.dark ? 0.28 : 0.2);
+  const front = rgba(mix(pal.ink, pal.muted, 0.15), pal.dark ? 0.55 : 0.5);
+  const lit = mix(pal.ivory, pal.amber, 0.55);
+  return [
+    { x0: -w * 0.02, x1: w * 1.02, baseY: h * 0.66, scale: w * 0.026, count: 16, seed: 7, color: back, bright: rgba(lit, 0.45) },
+    { x0: -w * 0.03, x1: w * 0.24, baseY: h * 0.93, scale: w * 0.03, count: 4, seed: 3, color: front, bright: rgba(lit, 0.9) },
+    { x0: w * 0.76, x1: w * 1.03, baseY: h * 0.93, scale: w * 0.03, count: 4, seed: 11, color: front, bright: rgba(lit, 0.9) },
+  ];
+}
+
+export { spectators, spectatorBody, type Spectator };
+
 function drawAudience(ctx: CanvasRenderingContext2D, x0: number, x1: number, baseY: number, scale: number, count: number, color: string, seed: number): void {
   ctx.fillStyle = color;
   for (const sp of spectators(x0, x1, baseY, scale, count, seed)) {
@@ -128,8 +165,15 @@ function drawAudience(ctx: CanvasRenderingContext2D, x0: number, x1: number, bas
   }
 }
 
+export interface BackdropOptions {
+  /** 路上の観客を静的な背景に含めるか（vector では動く客席に分けるので false） */
+  audience?: boolean;
+  /** 舞台の飾り幕を静的な背景に含めるか（vector では手前に別で描くので false） */
+  valance?: boolean;
+}
+
 /** 静的な背景をオフスクリーンに描く */
-export function renderBackdrop(w: number, h: number, dpr: number, prop: PracticeMode, pal: Palette, style: ArtStyle = 'vector'): HTMLCanvasElement {
+export function renderBackdrop(w: number, h: number, dpr: number, prop: PracticeMode, pal: Palette, style: ArtStyle = 'vector', opts: BackdropOptions = {}): HTMLCanvasElement {
   const c = document.createElement('canvas');
   c.width = Math.max(1, Math.ceil(w * dpr));
   c.height = Math.max(1, Math.ceil(h * dpr));
@@ -138,14 +182,17 @@ export function renderBackdrop(w: number, h: number, dpr: number, prop: Practice
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (style === 'ink') renderInk(ctx, w, h, dpr, prop, pal);
   else if (style === 'paint') renderPaint(ctx, w, h, prop, pal);
-  else renderVector(ctx, w, h, prop, pal);
+  else renderVector(ctx, w, h, prop, pal, opts);
   return c;
 }
 
 // ---- vector（現状） ---------------------------------------------------------
 
-function renderVector(ctx: CanvasRenderingContext2D, w: number, h: number, prop: PracticeMode, pal: Palette): void {
+function renderVector(ctx: CanvasRenderingContext2D, w: number, h: number, prop: PracticeMode, pal: Palette, opts: BackdropOptions): void {
   const floorY = h * FLOOR_Y;
+  const withAudience = opts.audience !== false;
+  const withValance = opts.valance !== false;
+  const groups = streetAudience(w, h, pal);
 
   // 壁
   const wall = ctx.createLinearGradient(0, 0, 0, floorY);
@@ -156,7 +203,7 @@ function renderVector(ctx: CanvasRenderingContext2D, w: number, h: number, prop:
 
   if (prop === 'street') {
     // 建物の窓（奥）
-    const win = rgba(mix(pal.panel2, pal.ink, pal.dark ? 0.35 : 0.18), 0.5);
+    const win = pal.dark ? rgba(mix(pal.amber, nightWarm(pal), 0.55), 0.55) : rgba(mix(pal.panel2, pal.ink, 0.18), 0.5);
     const frame = rgba(pal.ink, 0.1);
     const ww = w * 0.055;
     const wh = h * 0.09;
@@ -175,12 +222,14 @@ function renderVector(ctx: CanvasRenderingContext2D, w: number, h: number, prop:
       }
     }
     // 奥の観客（薄い）
-    drawAudience(ctx, -w * 0.02, w * 1.02, h * 0.66, w * 0.026, 16, rgba(mix(pal.ink, pal.muted, 0.4), pal.dark ? 0.28 : 0.2), 7);
+    const back = groups[0] as AudienceGroup;
+    if (withAudience) drawAudience(ctx, back.x0, back.x1, back.baseY, back.scale, back.count, back.color, back.seed);
     // 縁石と舗道
     const curbH = h * 0.03;
-    ctx.fillStyle = rgba(mix(pal.panel2, pal.muted, pal.dark ? 0.45 : 0.32));
+    const curbBase = pal.dark ? lighten(nightWarm(pal), 0.12) : pal.panel2;
+    ctx.fillStyle = rgba(mix(curbBase, pal.muted, pal.dark ? 0.3 : 0.32));
     ctx.fillRect(0, floorY - curbH, w, curbH);
-    ctx.fillStyle = rgba(lighten(mix(pal.panel2, pal.muted, 0.2), 0.3), 0.7);
+    ctx.fillStyle = rgba(lighten(mix(curbBase, pal.muted, 0.2), 0.3), 0.7);
     ctx.fillRect(0, floorY - curbH, w, 2);
     ctx.fillStyle = rgba(pal.ink, 0.12);
     ctx.fillRect(0, floorY - 1.5, w, 1.5);
@@ -201,9 +250,9 @@ function renderVector(ctx: CanvasRenderingContext2D, w: number, h: number, prop:
     ctx.lineTo(w, Math.round(floorY + (h - floorY) * 0.55) + 0.5);
     ctx.stroke();
     // 手前の観客（両端）
-    const front = rgba(mix(pal.ink, pal.muted, 0.15), pal.dark ? 0.55 : 0.5);
-    drawAudience(ctx, -w * 0.03, w * 0.24, h * 0.93, w * 0.03, 4, front, 3);
-    drawAudience(ctx, w * 0.76, w * 1.03, h * 0.93, w * 0.03, 4, front, 11);
+    if (withAudience) {
+      for (const g of groups.slice(1)) drawAudience(ctx, g.x0, g.x1, g.baseY, g.scale, g.count, g.color, g.seed);
+    }
     return;
   }
 
@@ -229,7 +278,7 @@ function renderVector(ctx: CanvasRenderingContext2D, w: number, h: number, prop:
       ctx.fill();
     }
     // 上の飾り幕（波形の裾と金の縁）
-    drawValance(ctx, w, h, pal);
+    if (withValance) drawValance(ctx, w, h, pal);
     return;
   }
 
@@ -247,10 +296,10 @@ function renderVector(ctx: CanvasRenderingContext2D, w: number, h: number, prop:
     ctx.lineTo(Math.round(x) + 0.5, floorY - 2);
     ctx.stroke();
   }
-  // 壁の光だまり
+  // 壁の光だまり（夜は電灯の琥珀）
   const glow = ctx.createRadialGradient(w * 0.5, h * 0.3, 0, w * 0.5, h * 0.3, w * 0.55);
-  glow.addColorStop(0, rgba(pal.ivory, pal.dark ? 0.05 : 0.35));
-  glow.addColorStop(1, rgba(pal.ivory, 0));
+  glow.addColorStop(0, pal.dark ? rgba(pal.amber, 0.14) : rgba(pal.ivory, 0.35));
+  glow.addColorStop(1, rgba(pal.dark ? pal.amber : pal.ivory, 0));
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, w, floorY);
   drawBoards(ctx, w, floorY, h, pal, floorColor(pal, prop));
@@ -273,7 +322,8 @@ function valanceHem(w: number, h: number): Pt[] {
   return pts;
 }
 
-function drawValance(ctx: CanvasRenderingContext2D, w: number, h: number, pal: Palette): void {
+/** 舞台の飾り幕（上端の波形の裾と金の縁）。vector では毎フレーム手前に描く */
+export function drawValance(ctx: CanvasRenderingContext2D, w: number, h: number, pal: Palette): void {
   const base = curtainColor(pal);
   const vh = h * 0.085;
   ctx.fillStyle = rgba(base);

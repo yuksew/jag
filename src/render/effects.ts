@@ -56,6 +56,11 @@ export class Effects {
     return this.particles.length > 0 || this.texts.length > 0 || this.fallers.some((f) => !f.resting);
   }
 
+  /** 生きている粒の数（上限つきの連続発生に使う） */
+  get particleCount(): number {
+    return this.particles.length;
+  }
+
   /** 見た目の乱数。決まった並びが欲しいテストのために差し替えられる */
   seed(rnd: () => number): void {
     this.rnd = rnd;
@@ -91,16 +96,19 @@ export class Effects {
     }
   }
 
-  /** 紙吹雪。x を中心に幅 spread から降らせる */
-  confetti(x: number, y: number, spread: number, colors: readonly string[], n: number): void {
+  /**
+   * 紙吹雪。x を中心に幅 spread から降らせる。
+   * lift を大きくすると下から投げ上げたように高く舞う（客席からの紙吹雪）
+   */
+  confetti(x: number, y: number, spread: number, colors: readonly string[], n: number, lift = 200, sideways = 220): void {
     for (let i = 0; i < n; i++) {
       const color = colors[Math.floor(this.rnd() * colors.length)] ?? colors[0] ?? '#fff';
       this.push({
         kind: 'confetti',
         x: x + (this.rnd() - 0.5) * spread,
         y: y + (this.rnd() - 0.5) * 20,
-        vx: (this.rnd() - 0.5) * 220,
-        vy: -60 - this.rnd() * 200,
+        vx: (this.rnd() - 0.5) * sideways,
+        vy: -60 - this.rnd() * lift,
         life: 1400 + this.rnd() * 900,
         maxLife: 2300,
         size: 3 + this.rnd() * 3,

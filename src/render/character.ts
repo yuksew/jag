@@ -1121,7 +1121,8 @@ export class CharacterSprites {
       rot({ x: px - sw * 0.82, y: shoulderY + drop }, px, py, lean),
     ];
     const neckBase = rot({ x: px, y: py - L * sy }, px, py, lean);
-    const headC = rot({ x: px + s.facing * hr * 0.05, y: py - L * sy - P.neck * hr - P.headH * hr * 0.92 + body.slump * hr * 0.1 }, px, py, lean);
+    // お辞儀では頭が胴の縮み以上に下がる（前へ倒れて見える）
+    const headC = rot({ x: px + s.facing * hr * 0.05, y: py - L * sy - P.neck * hr - P.headH * hr * 0.92 + body.slump * hr * 0.1 + body.bow * hr * 0.3 }, px, py, lean);
     const headAngle = lean + body.headTilt * m + body.bow * 0.25 + body.nod * 0.1 * m - body.slump * 0.06;
 
     // 腕（肩 → 肘 → 手）
@@ -1132,7 +1133,8 @@ export class CharacterSprites {
       const sh = shoulders[i === 0 ? 0 : 1];
       const side = i === 0 ? 1 : -1;
       const pose = s.hands[i === 0 ? 0 : 1];
-      const hand: Pt = pose ? pose.p : { x: sh.x + side * hr * 0.35, y: s.handY + hr * 1.1 + body.slump * hr * 0.15 };
+      // 下ろした手はお辞儀で少し内側・下へ（腕を体に添える）
+      const hand: Pt = pose ? pose.p : { x: sh.x + side * hr * (0.35 - body.bow * 0.12), y: s.handY + hr * 1.1 + body.slump * hr * 0.15 + body.bow * hr * 0.25 };
       const dx = hand.x - sh.x;
       const dy = hand.y - sh.y;
       // 肘は肩の下に垂れ、前腕が手へ伸びる（手が下がっているほど肘は外へ）

@@ -54,7 +54,7 @@ export interface Pose {
 /** 基本の気分。arena が毎フレーム決める */
 export type BaseMood = 'idle' | 'run' | 'showcase' | 'dropped' | 'done';
 /** 出来事への反応。arena がイベントで呼ぶ */
-export type Reaction = 'clean' | 'wobble' | 'drop' | 'applause' | 'bonus' | 'complete';
+export type Reaction = 'clean' | 'wobble' | 'drop' | 'applause' | 'bonus' | 'complete' | 'bow';
 
 export interface PoseInput {
   /** 一番高い球の方向（頭から見た −1〜1）。無ければ null */
@@ -80,6 +80,10 @@ const WOBBLE_MS = 950;
 const SURPRISE_MS = 480;
 const SURPRISE_FADE_MS = 260;
 const APPLAUSE_MS = 1000;
+/** 完走のお辞儀（深く、ゆっくり） */
+const BOW_MS = 1700;
+/** 動きを減らす設定で完走したときの静止のお辞儀 */
+const STILL_BOW = 0.85;
 const BONUS_MS = 1100;
 const BLINK_PERIOD_MS = 3400;
 const BLINK_MS = 120;
@@ -133,6 +137,7 @@ export class Acting {
   private applauseAt = -1e9;
   private bonusAt = -1e9;
   private completeAt = -1e9;
+  private bowAt = -1e9;
   private readonly face: Face = copyFace(CALM);
   private readonly body: Body = { ...NEUTRAL_BODY };
   private readonly target: Face = copyFace(CALM);
@@ -167,6 +172,9 @@ export class Acting {
         break;
       case 'complete':
         this.completeAt = now;
+        break;
+      case 'bow':
+        if (now - this.bowAt > BOW_MS) this.bowAt = now;
         break;
       default:
         break;
@@ -233,6 +241,7 @@ export class Acting {
     const b = this.body;
     const kb = 1 - Math.exp(-dt / BODY_EASE_MS);
     const reduce = input.reduceMotion;
+    const tBow = now - this.bowAt;
     if (reduce) {
       b.breathe = 0;
       b.hop = 0;
@@ -246,7 +255,8 @@ export class Acting {
       }
       const hopClean = tClean >= 0 && tClean < 260 ? Math.sin((tClean / 260) * Math.PI) * 0.6 : 0;
       const hopBonus = tBonus >= 0 && tBonus < 700 ? Math.abs(Math.sin((tBonus / 700) * Math.PI * 2)) : 0;
-      const hopDone = this.mood === 'done' ? Math.abs(Math.sin(now / 420 * Math.PI)) * 0.5 : 0;
+      const bowing = tBow >= 0 && tBow < BOW_MS;
+      const hopDone = this.mood === 'done' && !bowing ? Math.abs(Math.sin(now / 420 * Math.PI)) * 0.5 : 0;
       b.hop = Math.max(hopClean, hopBonus, hopDone) * g;
       b.lean = tWobble >= 0 && tWobble < 1100 ? this.wobbleDir * 0.26 * Math.exp(-tWobble / 420) * Math.cos(tWobble / 115) * g : 0;
     }
@@ -256,7 +266,10 @@ export class Acting {
     b.slump = easeTo(b.slump, dropped && !surprised ? 1 : 0, kb);
     b.stretch = easeTo(b.stretch, this.mood === 'showcase' || this.mood === 'done' ? 1 : 0, kb);
     const tApp = now - this.applauseAt;
-    b.bow = reduce ? 0 : tApp >= 0 && tApp < APPLAUSE_MS ? Math.sin((tApp / APPLAUSE_MS) * Math.PI) : 0;
+    const bowApp = tApp >= 0 && tApp < APPLAUSE_MS ? Math.sin((tApp / APPLAUSE_MS) * Math.PI) : 0;
+    // 完走のお辞儀: 速く下げて、少し止めて、ゆっくり上げる
+    const bowCall = tBow >= 0 && tBow < BOW_MS ? Math.sin(Math.min(1, tBow / BOW_MS) * Math.PI) ** 0.6 : 0;
+    b.bow = reduce ? (this.mood === 'done' ? STILL_BOW : 0) : Math.max(bowApp, bowCall);
     b.nod = reduce ? 0 : pulse(tClean, 70, 300) * 0.6;
     b.headTilt = easeTo(b.headTilt, b.lean * 0.7 + (wWobble > 0 ? this.wobbleDir * 0.14 * wWobble : 0), kb);
     return { face: this.face, body: b };

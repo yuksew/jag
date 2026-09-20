@@ -15,12 +15,15 @@ import {
   type RunState,
   type SaveState,
 } from '../core';
-import { drawCurtains, drawSpotlight, drawStageLights, FLOOR_Y, renderBackdrop } from './backdrop';
+import { Audience, type HandsFrame } from './audience';
+import { drawCurtains, drawSpotlight, drawStageLights, drawValance, FLOOR_Y, renderBackdrop } from './backdrop';
 import { daub, inkCircle, inkStroke, lcg, wobblyCircle, wobblyEllipse, type Rnd } from './brush';
 import { CharacterSprites, currentCharacter, watchCharacter, type CharacterId } from './character';
 import { Effects, styledText } from './effects';
+import { DISPLAY_FONT, loadFonts, NUMBER_FONT } from './fonts';
 import { lighten, readPalette, rgba, watchPalette, type Palette } from './palette';
 import { Acting, type BaseMood } from './pose';
+import { Signage, type SignEnv } from './signage';
 import { BallSprites, ClubSprites, drawFigure, figureColors, type HandPose, type Point, type SpriteEnv } from './sprites';
 import { currentStyle, watchStyle, type ArtStyle } from './style';
 
@@ -52,14 +55,30 @@ export interface ArenaText {
 /** 球の色（index 順）。CSS 変数名 */
 const BALL_COLORS = ['ivory', 'coral', 'sky', 'amber', 'ok', 'bad', 'muted'] as const;
 const FLASH_MS = 600;
-const FONT = '"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,sans-serif';
 /** 残像の数と間隔 */
 const TRAIL_STEPS = 5;
 const TRAIL_GAP_MS = 26;
 const SPOT_FADE_MS = 450;
 const BURST_MS = 500;
 const CURTAIN_MS = 1800;
+/** 完走で幕を閉じてから上げるまでの間 */
+const CURTAIN_HOLD_MS = 900;
 const SHAKE_MS = 300;
+/** 待機中にカメラを寄せる倍率と、寄る速さ */
+const IDLE_ZOOM = 1.15;
+const ZOOM_MS = 380;
+/** 寄せの中心（描画高さに対する割合）。床の少し上を固定して上の空白を減らす */
+const ZOOM_PIVOT_Y = 0.9;
+/** 完走のカーテンコール: お辞儀の間隔、客席からの紙吹雪の間隔と上限 */
+const BOW_PERIOD_MS = 4200;
+const TOSS_GAP_MS = 110;
+const TOSS_MAX = 90;
+/** 路上: 拍手で手が上がる時間と 2 コマの切り替え、「見せた」の明るさが消える時間 */
+const HANDS_UP_MS = 720;
+const HANDS_FRAME_MS = 170;
+const SHOWN_MS = 520;
+/** 横断幕が降りてくる時間 */
+const BANNER_ENTER_MS = 380;
 /** ink のジッタを更新する間隔（フレーム） */
 const JITTER_FRAMES = 8;
 /** 投げの予備動作（拍のこの時間前から手が沈む） */
@@ -84,6 +103,8 @@ export class Arena {
   private readonly acting = new Acting();
   private readonly partnerActing = new Acting(0.55);
   private readonly fx = new Effects();
+  private readonly audience = new Audience();
+  private readonly signage = new Signage();
   private readonly pending: RunEvent[] = [];
   private lastNow = -1;
   private prevOn = false;
@@ -102,6 +123,17 @@ export class Arena {
   private curtain = 1;
   private curtainCloseAt = -1e9;
   private applauseSide = 1;
+  /** カメラの寄せ（1 = ラン中の大きさ） */
+  private zoom = 1;
+  /** 路上: 最後の拍手と「見せた」の時刻 */
+  private applauseAt = -1e9;
+  private shownAt = -1e9;
+  /** 横断幕を出し始めた時刻（出ていなければ −1） */
+  private bannerSince = -1;
+  /** 完走のカーテンコール */
+  private curtainCall = false;
+  private nextBowAt = 0;
+  private lastTossAt = -1e9;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -113,6 +145,7 @@ export class Arena {
     this.pal = readPalette();
     this.style = currentStyle();
     this.character = currentCharacter();
+    loadFonts();
     watchPalette(() => {
       this.palDirty = true;
     });
@@ -140,6 +173,8 @@ export class Arena {
     this.ballSprites.clear();
     this.clubSprites.clear();
     this.characterSprites.clear();
+    this.audience.clear();
+    this.signage.clear();
   }
 
   /** ランのイベントを演出に流す。次の draw で処理する */
@@ -257,11 +292,17 @@ export class Arena {
           break;
         case 'applause': {
           this.acting.react('applause', now);
+          this.applauseAt = now;
           this.applauseSide = -this.applauseSide;
           const x = W * (0.5 + this.applauseSide * 0.38) + (Math.random() - 0.5) * W * 0.08;
           fx.float(x, H * 0.84, `+${e.gain}`, pal.amber);
           break;
         }
+        case 'shown':
+          this.shownAt = now;
+          this.acting.react('bonus', now);
+          if (!reduce) fx.confetti(W / 2, H * 0.92, W * 0.9, confettiColors, 36, 520, 320);
+          break;
         case 'drop':
           this.dropPending = true;
           this.acting.react('drop', now);
@@ -460,6 +501,8 @@ export class Arena {
       this.ballSprites.clear();
       this.clubSprites.clear();
       this.characterSprites.clear();
+      this.audience.clear();
+      this.signage.clear();
     }
     const { ctx, w: W, h: H, pal, fx, style } = this;
     const reduce = pal.reduceMotion;
@@ -467,7 +510,9 @@ export class Arena {
     const rnd = lcg(seed);
     // ラン中は run の種目、待機中はタブで選んだ種目を映す。まだ一度も投げていなければ手持ちの球を並べる
     const prop: PracticeMode = run.on || run.balls.length ? run.prop : state.mode;
-    const view = run.balls.length ? { balls: run.balls, held: run.hands } : idleBalls(state.balls);
+    // カーテンコール（完走後の待機）では道具を置いて礼をする
+    const callIdle = prop === 'stage' && state.done && !run.on;
+    const view = run.balls.length && !callIdle ? { balls: run.balls, held: run.hands } : idleBalls(callIdle ? 0 : state.balls);
     const hs = this.hands(prop);
     const r = Math.max(10, W * 0.02);
     const floorY = H * FLOOR_Y;
@@ -497,18 +542,62 @@ export class Arena {
     }
     fx.update(reduce ? 0 : dt, floorY + H * 0.05, W);
 
+    // 舞台の幕。完走で閉じ、少し置いて上がる（動きを減らす設定では上がった状態）
+    this.curtain = stage ? curtainOpen(now - this.curtainCloseAt, state.done, reduce) : 1;
+
+    // カーテンコール: 幕が上がりきったらお辞儀を繰り返し、客席から紙吹雪
+    const callOn = stage && state.done && !run.on && this.curtain >= 0.999;
+    if (callOn) {
+      if (!this.curtainCall) {
+        this.curtainCall = true;
+        this.nextBowAt = now + 300;
+      }
+      if (!reduce && now >= this.nextBowAt) {
+        this.acting.react('bow', now);
+        this.nextBowAt = now + BOW_PERIOD_MS;
+      }
+      if (!reduce && now - this.lastTossAt > TOSS_GAP_MS && fx.particleCount < TOSS_MAX) {
+        this.lastTossAt = now;
+        const colors = [pal.coral, pal.sky, pal.amber, pal.ivory, pal.ok];
+        fx.confetti(W * (0.08 + 0.84 * Math.random()), H * 0.98, W * 0.08, colors, 2, 620, 160);
+      }
+    } else {
+      this.curtainCall = false;
+    }
+
+    // カメラ。待機中は主人公に寄せる（vector 以外の舞台は飾り幕が背景に焼いてあるので寄せない）
+    const zoomTarget = run.on || (stage && style !== 'vector') ? 1 : IDLE_ZOOM;
+    this.zoom = reduce ? zoomTarget : this.zoom + (zoomTarget - this.zoom) * Math.min(1, dt / ZOOM_MS);
+    if (Math.abs(this.zoom - zoomTarget) < 0.002) this.zoom = zoomTarget;
+    ctx.save();
+    if (this.zoom !== 1) {
+      ctx.translate(W / 2, H * ZOOM_PIVOT_Y);
+      ctx.scale(this.zoom, this.zoom);
+      ctx.translate(-W / 2, -H * ZOOM_PIVOT_Y);
+    }
+
     // 背景
     const key = `${style}|${prop}|${pal.dark ? 'd' : 'l'}|${W}x${H}`;
     if (!this.backdrop || this.backdrop.key !== key) {
-      this.backdrop = { key, canvas: renderBackdrop(W, H, this.dpr, prop, pal, style) };
+      const split = style === 'vector';
+      this.backdrop = { key, canvas: renderBackdrop(W, H, this.dpr, prop, pal, style, { audience: !split, valance: !split }) };
     }
     ctx.drawImage(this.backdrop.canvas, 0, 0, W, H);
 
-    // 光。舞台は常に、見せ場はスポットライト
-    const wantSpot = showcase ? 1 : stage && run.on ? 0.55 : stage ? 0.25 : 0;
+    // 路上の客席（vector）。拍手で手が上がり、「見せた」で明るくなる
+    if (style === 'vector' && prop === 'street') {
+      const up = now - this.applauseAt;
+      const frame: HandsFrame = up >= 0 && up < HANDS_UP_MS ? (reduce ? 1 : ((Math.floor(up / HANDS_FRAME_MS) % 2) + 1) as HandsFrame) : 0;
+      const lit = now - this.shownAt;
+      const bright = lit >= 0 && lit < SHOWN_MS ? 1 - lit / SHOWN_MS : 0;
+      this.audience.draw(ctx, W, H, this.dpr, pal, frame, bright);
+    }
+
+    // 光。舞台は常に、見せ場はスポットライト、完走は明るく
+    const wantSpot = showcase ? 1 : stage && run.on ? 0.55 : stage && state.done ? 0.9 : stage ? 0.25 : 0;
     this.spot = reduce ? wantSpot : this.spot + (wantSpot - this.spot) * Math.min(1, dt / SPOT_FADE_MS);
-    if (stage) drawStageLights(ctx, W, H, pal, 1, style);
-    drawSpotlight(ctx, W, H, pal, W / 2, this.spot, showcase ? 1 : 0.4, style, seed);
+    if (stage) drawStageLights(ctx, W, H, pal, callOn ? 1.4 : 1, style);
+    drawSpotlight(ctx, W, H, pal, W / 2, this.spot, showcase ? 1 : callOn ? 0.55 : 0.4, style, seed);
 
     // ジャグラー（と相方）
     const poses = this.handPoses(now, run, view.held, hs);
@@ -539,7 +628,7 @@ export class Arena {
         this.characterSprites.draw(ctx, { ...base, partner: true, x: x1, hands: [null, poses[1]], facing: -1, pose: pose1 });
       } else {
         const pose = this.acting.pose(now, { lookAt: lookFrom(W / 2, headY), beatPhase, reduceMotion: reduce });
-        this.characterSprites.draw(ctx, { ...base, partner: false, x: W / 2, hands: poses, facing: 0, pose });
+        this.characterSprites.draw(ctx, { ...base, partner: false, x: W / 2, hands: callIdle ? [null, null] : poses, facing: 0, pose });
       }
     } else if (prop === 'passing') {
       drawFigure(ctx, {
@@ -732,7 +821,7 @@ export class Arena {
       const age = now - flash.at;
       const pop = reduce ? 1 : 1 + 0.25 * Math.exp(-age / 80);
       ctx.globalAlpha = 1 - age / FLASH_MS;
-      ctx.font = `900 ${Math.round(18 * pop)}px ${FONT}`;
+      ctx.font = `700 ${Math.round(19 * pop)}px ${DISPLAY_FONT}`;
       const color = flash.tone === 'bad' ? pal.bad : flash.tone === 'warn' ? pal.amber : pal.ink;
       const flashX = cx + (flash.tone === 'warn' ? shake : 0);
       this.outlinedText(flash.text, flashX,cy + r0 + 28 - (reduce ? 0 : (age / FLASH_MS) * 8), color, rgba(pal.panel, 0.85));
@@ -741,7 +830,7 @@ export class Arena {
 
     // 粒と浮かぶ文字
     if (!reduce) fx.drawParticles(ctx, style, rgba(pal.ink, 0.85));
-    fx.drawTexts(ctx, `700 15px ${FONT}`, rgba(pal.panel, 0.85), style);
+    fx.drawTexts(ctx, `400 16px ${NUMBER_FONT}`, rgba(pal.panel, 0.85), style);
 
     // 見せ場クリアなどの閃光
     const burst = now - this.burstAt;
@@ -752,43 +841,48 @@ export class Arena {
       ctx.globalCompositeOperation = 'source-over';
     }
 
-    // 舞台の幕。完走で閉じる
+    // ここまでがカメラの寄せの対象。飾り幕・幕・看板は寄せない
+    ctx.restore();
+
+    // 舞台の飾り幕と幕
     if (stage) {
-      const done = state.done;
-      const closing = now - this.curtainCloseAt;
-      let open: number;
-      if (!done) open = 1;
-      else if (closing >= 0 && closing < CURTAIN_MS && !reduce) open = 1 - easeInOut(closing / CURTAIN_MS);
-      else open = 0;
-      this.curtain = open;
-      drawCurtains(ctx, W, H, pal, open, style, seed);
+      if (style === 'vector') drawValance(ctx, W, H, pal);
+      drawCurtains(ctx, W, H, pal, this.curtain, style, seed);
     }
 
-    // 状態文字（幕より手前）
+    // 看板と状態文字（幕より手前）
+    const env: SignEnv = { pal, style, dpr: this.dpr, reduceMotion: reduce };
     const stroke = rgba(pal.panel, 0.8);
+    let bannerText: string | null = null;
     if (run.on && run.next) {
       const n = run.next;
-      ctx.textAlign = 'left';
-      const sx = W * 0.04;
-      const sy = H * 0.1;
       if (stage) {
+        // ショーの進み具合は幕の上の電飾看板。電球は 4 拍ごとに入れ替わる
         const p = showProgress(run);
-        ctx.font = `700 14px ${FONT}`;
-        this.outlinedText(this.text.showProgress(p.beats, p.need), sx, sy, pal.amber, stroke);
+        this.signage.marquee(ctx, W, H, this.text.showProgress(p.beats, p.need), env, Math.floor(p.beats / 4));
       } else if (showcase) {
-        ctx.font = `700 14px ${FONT}`;
-        this.outlinedText(this.text.showcase, sx, sy, pal.amber, stroke);
+        bannerText = this.text.showcase;
       } else if (n.k >= run.showcaseAt - 8 && n.k < run.showcaseAt) {
-        ctx.font = `500 13px ${FONT}`;
-        this.outlinedText(this.text.showcaseIn(run.showcaseAt - n.k), sx, sy, pal.muted, stroke);
+        bannerText = this.text.showcaseIn(run.showcaseAt - n.k);
       }
-      ctx.textAlign = 'center';
     } else if (!run.on) {
-      ctx.font = `500 14px ${FONT}`;
-      const msg = state.done ? this.text.done : run.ended ? this.text.dropped : this.text.idle;
-      const onCurtain = stage && this.curtain < 0.5;
-      this.outlinedText(msg, cx - shake, onCurtain ? H * 0.5 : H * 0.12, onCurtain ? pal.ivory : pal.muted, onCurtain ? 'rgba(0,0,0,0.35)' : stroke);
+      if (stage && state.done) {
+        // 完走: 看板に「ショーは成立した」。幕が閉じている間は隠す
+        if (this.curtain > 0.5) this.signage.marquee(ctx, W, H, this.text.done, env, reduce ? 0 : Math.floor(now / 300), reduce);
+      } else {
+        ctx.font = `500 14px ${DISPLAY_FONT}`;
+        ctx.textAlign = 'center';
+        const msg = state.done ? this.text.done : run.ended ? this.text.dropped : this.text.idle;
+        this.outlinedText(msg, cx - shake, H * 0.12, pal.muted, stroke);
+      }
     }
+    if (bannerText !== null) {
+      if (this.bannerSince < 0) this.bannerSince = now;
+      this.signage.banner(ctx, W, H, bannerText, env, now, (now - this.bannerSince) / BANNER_ENTER_MS, showcase);
+    } else {
+      this.bannerSince = -1;
+    }
+    ctx.textAlign = 'center';
 
     // 描画時間の計測
     const ms = performance.now() - t0;
@@ -813,4 +907,16 @@ function idleBalls(count: number): { balls: Ball[]; held: [number[], number[]] }
 
 function easeInOut(t: number): number {
   return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+}
+
+/**
+ * 舞台の幕の開き（1 = 開いている）。完走（done）なら show-complete からの経過 t で
+ * 閉じる → 少し止める → 上がる。動きを減らす設定では上がった 1 枚。
+ */
+function curtainOpen(t: number, done: boolean, reduce: boolean): number {
+  if (!done || reduce || t < 0) return 1;
+  if (t < CURTAIN_MS) return 1 - easeInOut(t / CURTAIN_MS);
+  if (t < CURTAIN_MS + CURTAIN_HOLD_MS) return 0;
+  if (t < CURTAIN_MS * 2 + CURTAIN_HOLD_MS) return easeInOut((t - CURTAIN_MS - CURTAIN_HOLD_MS) / CURTAIN_MS);
+  return 1;
 }
